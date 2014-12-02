@@ -69,9 +69,8 @@ class WebSocketTransport extends Transport
     
     , @options.heartbeatTimeout + @options.heartbeatInterval)
  
-  send: (message, options) ->
-    # TODO: return promise
-    if not @isConnected() or @socket.readyState is @socket.CONNECTING
+  send: (message, options = {}) ->
+    unless @isConnected() or @isConnecting()
       throw new ReallyError('Connection to the server is not established')
     # if connection is not initialized and this isn't the initialization message
     # buffer messages and send them after initialization
@@ -121,6 +120,7 @@ class WebSocketTransport extends Transport
    
     _bindWebSocketEvents.call(this)
     return @socket
+  
   _.flush = ->
     setTimeout(=>
       @send(message, options) for {message, options} in @_msessagesBuffer
@@ -129,6 +129,10 @@ class WebSocketTransport extends Transport
   isConnected: () ->
     return false if not @socket
     @socket.readyState is @socket.OPEN
+  
+  isConnecting: () ->
+    return false if not @socket
+    @socket.readyState is @socket.CONNECTING
  
   _destroy =  () -> @off()
  

@@ -4,7 +4,7 @@
 
 CONFIG              = require './support/server/config.coffee'
 protocol            = require '../src/protocol.coffee'
-ReallyErorr         = require '../src/really-error.coffee'
+ReallyError         = require '../src/really-error.coffee'
 WebSocketTransport  = require '../src/transports/webSocket.coffee'
 
 options =
@@ -22,23 +22,23 @@ describe 'webSocket', ->
     it 'should throw error if initialized without passing domain and access token', ->
       expect ->
         ws = new WebSocketTransport(null, null, options)
-      .toThrow new ReallyErorr('Can\'t initialize connection without passing domain and access token')
+      .toThrow new ReallyError('Can\'t initialize connection without passing domain and access token')
       
       expect ->
         ws = new WebSocketTransport('wss://a6bcc.api.really.io', undefined, options)
-      .toThrow new ReallyErorr('Can\'t initialize connection without passing domain and access token')
+      .toThrow new ReallyError('Can\'t initialize connection without passing domain and access token')
       
       expect ->
         ws = new WebSocketTransport(undefined, 'ibj88w5aye', options)
-      .toThrow new ReallyErorr('Can\'t initialize connection without passing domain and access token')
+      .toThrow new ReallyError('Can\'t initialize connection without passing domain and access token')
       
       expect ->
         ws = new WebSocketTransport(1234, 1234, options)
-      .toThrow new ReallyErorr('Only <String> values are allowed for domain and access token')
+      .toThrow new ReallyError('Only <String> values are allowed for domain and access token')
       
       expect ->
         ws = new WebSocketTransport('wss://a6bcc.api.really.io', 1234, options)
-      .toThrow new ReallyErorr('Only <String> values are allowed for domain and access token')
+      .toThrow new ReallyError('Only <String> values are allowed for domain and access token')
   
   describe 'connect', ->
 
@@ -108,7 +108,7 @@ describe 'webSocket', ->
       ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5aye', options)
       expect ->
         ws.send(protocol.createMessage('/users'),{})
-      .toThrow new ReallyErorr('Connection to the server is not established')
+      .toThrow new ReallyError('Connection to the server is not established')
 
 
     it 'should send data with UTF-8 string format with included tag', (done) ->

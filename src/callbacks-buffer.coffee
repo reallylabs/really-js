@@ -12,6 +12,7 @@ class CallbacksBuffer
   
   handle: (message) ->
     {tag} = message
+    
     if protocol.isErrorMessage message
       try
         @_callbacks[tag]['error'].call()
@@ -36,8 +37,10 @@ class CallbacksBuffer
   add: (args) ->
     {type, success, error, complete} = args
     type ?= 'default'
+    success ?= _.noop
+    error ?= _.noop
+    complete ?= _.noop
     tag = newTag.call(this)
-    
     @_callbacks[tag] = {type, success, error, complete}
 
     return tag
