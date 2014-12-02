@@ -7,16 +7,16 @@
 
 class Transport
 
-  constructor: (@url) ->
+  constructor: (@url) -> undefined
 
-  connect: () ->
+  connect: () -> undefined
 
-  disconnect: () ->
+  disconnect: () -> undefined
 
-  send: (message) ->
+  send: (message) -> undefined
 
-  isConnected: () ->
+  isConnected: () -> undefined
 
-  on: (eventName, callback) ->
+  on: (eventName, callback) -> undefined
 
 module.exports = Transport

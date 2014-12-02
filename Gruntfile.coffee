@@ -1,6 +1,6 @@
 module.exports = (grunt) ->
   require('load-grunt-tasks')(grunt)
-  
+
   grunt.initConfig
     pkg: grunt.file.readJSON 'package.json'
 
@@ -13,14 +13,14 @@ module.exports = (grunt) ->
         files:
           'dist/really.js': ['src/really.coffee']
 
-        
+
         options:
           transform: ['coffeeify']
           banner: """
           /*!
            *  Really.js v<%= pkg.version %>
            *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
-           *  
+           *
            *  Date: <%= grunt.template.today() %>
            */
           """
@@ -35,10 +35,12 @@ module.exports = (grunt) ->
       dist:
         files:
           'dist/really.<%= pkg.version %>.min.js': 'dist/really.js'
-    
+
     coffeelint:
       src: ['src/**/*.coffee']
       tests: ['tests/**/*.coffee']
+      options:
+        configFile: 'coffeelint.json'
 
   grunt.registerTask 'test', [
     'karma'
@@ -46,7 +48,7 @@ module.exports = (grunt) ->
 
 
   grunt.registerTask 'build', [
-    # 'coffeelint',
+    'coffeelint',
     'browserify:dist',
     'uglify:dist'
   ]

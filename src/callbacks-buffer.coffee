@@ -9,7 +9,6 @@ class CallbacksBuffer
   constructor: ->
     @tag = 0
     @_callbacks = {}
-
   
   handle: (message) ->
     {tag} = message
@@ -28,7 +27,7 @@ class CallbacksBuffer
     try
       @_callbacks[tag]['complete'].call()
     catch e
-        console.log 'Error happened when trying to execute your complete callback', e.stack
+      console.log 'Error happened when trying to execute your complete callback', e.stack
     
 
     delete @_callbacks[tag]

@@ -10,32 +10,28 @@ Q = require 'q'
 # TODO: timeout should be taken as a parameter
 # TODO: if connection get closed stop the heartbeat
 class WebSocketTransport extends Transport
-
-  constructor: (@domain, @accessToken) ->
+  constructor: (@domain, @accessToken, @options) ->
     unless domain and accessToken
-      throw new ReallyError 'Can\'t initialize connection without passing domain and access token'
-
+      throw new ReallyError('Can\'t initialize connection without passing domain and access token')
+    
     unless _.isString(domain) and _.isString(accessToken)
-      throw new ReallyError 'Only <String> values are allowed for domain and access token'
-
+      throw new ReallyError('Only <String> values are allowed for domain and access token')
+    
     @socket = null
-    @callbacksBuffer = new CallbacksBuffer
+    @callbacksBuffer = new CallbacksBuffer()
     @_msessagesBuffer = []
     @pushHandler = PushHandler
-
     # connection not initialized yet "we haven't send first message yet"
     @initialized =  false
     @url = "#{domain}/v#{protocol.clientVersion}/socket"
-
   # Mixin Emitter
   Emitter(WebSocketTransport.prototype)
-
 
   _bindWebSocketEvents = ->
     @socket.addEventListener 'open', =>
       _sendFirstMessage.call(this)
       @emit 'opened'
-
+    
     @socket.addEventListener 'close', =>
       @emit 'closed'
       @disconnect()
@@ -55,53 +51,52 @@ class WebSocketTransport extends Transport
 
   _startHeartbeat: () ->
     message = protocol.heartbeatMessage()
+    
     success = (data) =>
-      clearTimeout @heartbeatTimeOut
-      setTimeout(=> 
+      clearTimeout @heartbeatTimeoutID
+      setTimeout(=>
         @_startHeartbeat.call(this)
-      , 5e3)
+      , @options.heartbeatInterval)
 
     @send message, {success}
 
-    @heartbeatTimeOut = 
+    @heartbeatTimeoutID =
     setTimeout( =>
       # we've not received heartbeat response from server yet just die
-      clearTimeout @heartbeatTimeOut
+      clearTimeout @heartbeatTimeoutID
       @emit 'heartbeatLag'
       @disconnect()
-    , 5e3)
-  
+    
+    , @options.heartbeatTimeout + @options.heartbeatInterval)
+ 
   send: (message, options) ->
     # TODO: return promise
     if not @isConnected() or @socket.readyState is @socket.CONNECTING
-      throw new ReallyError 'Connection to the server is not established'
-
-    # if connection is not initialized and this isn't the initialization message 
+      throw new ReallyError('Connection to the server is not established')
+    # if connection is not initialized and this isn't the initialization message
     # buffer messages and send them after initialization
     unless @initialized or message.type is 'initialization'
       @_msessagesBuffer.push {message, options}
       return
     # connection is initialized send the message
-    deferred = Q.defer() 
+    deferred = Q.defer()
     {type} = message
-    
+   
     success = (data) ->
       options.success? data
       deferred.resolve data
-    
+   
     error = (reason) ->
       options.error? reason
-      deferred.reject reason 
+      deferred.reject reason
 
     complete = (data) ->
       options.complete? data
-    
+   
     message.data.tag = @callbacksBuffer.add {type, success, error, complete}
-    console.log 'send'
     @socket.send JSON.stringify message.data
-
     return deferred.promise
-    
+   
   _sendFirstMessage = ->
     success = (data) =>
       @initialized = true
@@ -109,40 +104,34 @@ class WebSocketTransport extends Transport
       _.flush.call(this)
       @_startHeartbeat()
       @emit 'initialized', data
-
+    
     error = (data) =>
       @initialized = false
       @emit 'initializationError', data
-    msg = protocol.getInitializationMessage()
-    
+    msg = protocol.initializationMessage()
+   
     @send msg, {success, error}
-    
-    
-
 
   connect: () ->
     # singleton websocket
-    @socket ?= new WebSocket @url
-    
+    @socket ?= new WebSocket(@url)
+   
     @socket.addEventListener 'error', _.once ->
-     console.log "error initializing websocket with URL: #{@url}"
-    
+      console.log "error initializing websocket with URL: #{@url}"
+   
     _bindWebSocketEvents.call(this)
-
     return @socket
-
   _.flush = ->
     setTimeout(=>
       @send(message, options) for {message, options} in @_msessagesBuffer
     , 0)
 
-
   isConnected: () ->
     return false if not @socket
     @socket.readyState is @socket.OPEN
-
+ 
   _destroy =  () -> @off()
-  
+ 
   disconnect: () ->
     _destroy.call(this)
     @socket?.close()
