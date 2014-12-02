@@ -66,7 +66,7 @@ describe 'webSocket', ->
     it 'should send first message', (done) ->
       ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5aye', options)
       ws.connect()
-      message = {tag: 1, 'cmd': 'init', accessToken: 'xxwmn93p0h'}
+      message = {tag: 1, 'cmd': 'init', accessToken: 'ibj88w5aye'}
       ws.once 'message', (msg) ->
         expect(message).toEqual msg
         done()

@@ -22,11 +22,11 @@ module.exports =
     'subscribe': 'subscribe'
     'unsubscribe': 'unsubscribe'
 
-  initializationMessage: () ->
+  initializationMessage: (accessToken) ->
     'type': 'initialization'
     'data':
       'cmd': @commands.init
-      'accessToken': authenticator.getAccessToken()
+      'accessToken': accessToken
 
   createMessage: (res, body) ->
     message =

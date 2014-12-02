@@ -108,7 +108,7 @@ class WebSocketTransport extends Transport
     error = (data) =>
       @initialized = false
       @emit 'initializationError', data
-    msg = protocol.initializationMessage()
+    msg = protocol.initializationMessage(@accessToken)
    
     @send msg, {success, error}
 
