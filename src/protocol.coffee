@@ -63,8 +63,8 @@ module.exports =
         valid: _.isNumber
         message: 'You should pass Number  for "skip" option'
       sort:
-        valid: _.isBoolean
-        message: 'You should pass Boolean  for "sort" option'
+        valid: _.isString
+        message: 'You should pass String  for "sort" option'
       token:
         valid: _.isString
         message: 'You should pass String  for "token" option'

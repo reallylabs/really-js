@@ -15,7 +15,7 @@ class CollectionRef
     body = options?.body
 
     try
-      message = protocol.getMessage(@res, body)
+      message = protocol.createMessage(@res, body)
     catch e
       setTimeout( ->
         deferred.reject e
@@ -30,7 +30,7 @@ class CollectionRef
     {onSuccess, onError, onComplete} = options
 
     try
-      message = protocol.updateMessage(@res, options)
+      message = protocol.readMessage(@res, options)
     catch e
       setTimeout( ->
         deferred.reject e
