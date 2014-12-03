@@ -12,7 +12,7 @@ class CollectionRef
 
   create: (options) ->
     deferred = new Q.defer()
-    body = options?.body
+    {onSuccess, onError, onComplete, body} = options
 
     try
       message = protocol.createMessage(@res, body)
@@ -37,7 +37,7 @@ class CollectionRef
       , 0)
       return deferred.promise
 
-    @channel.send message, {success: onSuccess, error: onError}
+    @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
 
 
