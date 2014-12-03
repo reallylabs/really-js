@@ -72,7 +72,7 @@ module.exports =
         valid: _.isBoolean
         message: 'You should pass Boolean  for "includeTotalCount" option'
       paginationToken:
-        valid: -> _.isString
+        valid: _.isString
         message: 'You should pass String  for "fields" option'
       subscribe:
         valid: _.isBoolean
