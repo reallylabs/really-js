@@ -4,6 +4,7 @@ Q = require 'q'
 
 class ObjectRef
   constructor: (@res) ->
+    throw new ReallyError('Can not be initialized without resource') unless res
     @rev = 0
     # Listen on event name that matches res of ObjectRef and fire event on
     # this objectref
@@ -12,12 +13,8 @@ class ObjectRef
 
   get: (options) ->
     deferred = new Q.defer()
-    unless options
-      deferred.reject new ReallyError('Can\'t be called without passing arguments')
-      return deferred.promise
-
+    {fields, onSuccess, onError, onComplete} = options
     try
-      fields = options.fields
       message = protocol.getMessage(@res, fields)
     catch e
       setTimeout( ->
@@ -48,6 +45,6 @@ class ObjectRef
   delete: (options) ->
     {onSuccess, onError, onComplete} = options
     message = protocol.deleteMessage(@res)
-    @channel.send message, {success: onSuccess, error: onError}
+    @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
 module.exports = ObjectRef
