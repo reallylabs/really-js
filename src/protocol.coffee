@@ -29,12 +29,18 @@ module.exports =
       'accessToken': accessToken
 
   createMessage: (res, body) ->
+    
+    throw new ReallyError('You should pass a resource parameter as String')  unless _.isString res
+    
+    unless _.isObject(body) or _.isUndefined(body)
+      throw new ReallyError('You should pass a body parameter as Object')
+    
     message =
       type: 'create'
       data:
         cmd: @commands.create
         r: res
-
+    
     message['body'] = body if body
 
     return message
@@ -125,6 +131,8 @@ module.exports =
     return message
 
   deleteMessage: (res) ->
+    throw new ReallyError('You should pass a resource parameter as String') unless _.isString res
+    
     type: 'delete'
     data:
       cmd: @commands.delete
