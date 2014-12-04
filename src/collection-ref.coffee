@@ -1,3 +1,4 @@
+_ = require 'lodash'
 protocol = require './protocol.coffee'
 ReallyError = require './really-error.coffee'
 Q = require 'q'
