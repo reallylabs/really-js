@@ -4,6 +4,7 @@ Q = require 'q'
 
 class CollectionRef
   constructor: (@res) ->
+    throw new ReallyError('Can not be initialized without resource') unless res
     @rev = 0
     # Listen on event name that matches res of CollectionRef and fire event on
     # this CollectionRef
@@ -28,9 +29,10 @@ class CollectionRef
     deferred = new Q.defer()
 
     {onSuccess, onError, onComplete} = options
+    protocolOpttions = _.omit options, ['onSuccess', 'onError', 'onComplete']
 
     try
-      message = protocol.readMessage(@res, options)
+      message = protocol.readMessage(@res, protocolOpttions)
     catch e
       setTimeout( ->
         deferred.reject e
