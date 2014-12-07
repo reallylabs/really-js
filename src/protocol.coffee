@@ -139,7 +139,7 @@ module.exports =
       r: res
 
   subscribeMessage: (subscriptions) ->
-    if not subscriptions or not _.isArray(subscriptions) or not _.isObject(subscriptions)
+    unless subscriptions or  _.isArray(subscriptions)  or  _.isObject(subscriptions)
       throw new ReallyError('subscription(s) should be either Object or Array of Objects')
 
     subscriptions = [subscriptions] if not _.isArray subscriptions

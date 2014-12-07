@@ -40,7 +40,7 @@ class ObjectRef
       , 0)
       return deferred.promise
 
-    @channel.send message, {success: onSuccess, error: onError}
+    @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
   delete: (options) ->
     {onSuccess, onError, onComplete} = options
