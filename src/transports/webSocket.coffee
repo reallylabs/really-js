@@ -19,7 +19,7 @@ class WebSocketTransport extends Transport
     
     @socket = null
     @callbacksBuffer = new CallbacksBuffer()
-    @_msessagesBuffer = []
+    @_messagesBuffer = []
     @pushHandler = PushHandler
     # connection not initialized yet "we haven't send first message yet"
     @initialized =  false
@@ -75,7 +75,7 @@ class WebSocketTransport extends Transport
     # if connection is not initialized and this isn't the initialization message
     # buffer messages and send them after initialization
     unless @initialized or message.type is 'initialization'
-      @_msessagesBuffer.push {message, options}
+      @_messagesBuffer.push {message, options}
       return
     # connection is initialized send the message
     deferred = Q.defer()
@@ -123,7 +123,7 @@ class WebSocketTransport extends Transport
   
   _.flush = ->
     setTimeout(=>
-      @send(message, options) for {message, options} in @_msessagesBuffer
+      @send(message, options) for {message, options} in @_messagesBuffer
     , 0)
 
   isConnected: () ->
