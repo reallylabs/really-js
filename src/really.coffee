@@ -1,10 +1,10 @@
-Channel = require './transports/webSocket.coffee'
+Channel = require './transports/webSocket'
 # Authenticaiton = require './src/authenticaiton.coffee'
 Emitter = require 'component-emitter'
-protocol = require './protocol.coffee'
-ObjectRef = require './object-ref.coffee'
-ReallyError = require './really-error.coffee'
-CollectionRef = require './collection-ref.coffee'
+protocol = require './protocol'
+ObjectRef = require './object-ref'
+ReallyError = require './really-error'
+CollectionRef = require './collection-ref'
 
 class Really
   constructor: (domain, options) ->

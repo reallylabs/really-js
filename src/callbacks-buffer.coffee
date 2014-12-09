@@ -4,7 +4,7 @@
  * Callbacks Buffer
  * 
 ###
-protocol = require './protocol.coffee'
+protocol = require './protocol'
 class CallbacksBuffer
   constructor: ->
     @tag = 0

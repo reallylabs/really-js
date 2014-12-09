@@ -6,7 +6,7 @@ module.exports = function(config) {
 
     // base path that will be used to resolve all patterns (eg. files, exclude)
     basePath: '',
-    
+
 
     // frameworks to use
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
@@ -36,8 +36,7 @@ module.exports = function(config) {
     // test results reporter to use
     // possible values: 'dots', 'progress'
     // available reporters: https://npmjs.org/browse/keyword/karma-reporter
-    reporters: ['progress', 'coverage'],
-    // reporters: ['progress', 'html'],
+    reporters: ['progress'],
 
 
     // web server port
@@ -56,25 +55,20 @@ module.exports = function(config) {
     // enable / disable watching file and executing tests whenever any file changes
     autoWatch: true,
 
-    "coverageReporter": {
-        "reporters": [
-          {"type": "text-summary"}
-          // {"type" : "html", "dir" : "coverage/"} https://github.com/karma-runner/karma-coverage/issues/22
-        ]
-      },
+
 
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-    browsers: ['Firefox'],
+    browsers: ['Chrome'],
 
 
     // Continuous Integration mode
     // if true, Karma captures browsers, runs the tests and exits
-    singleRun: true,
+    singleRun: false,
 
     browserify: {
       debug: true,
-      transform: ['coffeeify', 'browserify-istanbul'],
+      transform: ['coffeeify'],
       extensions: ['.js', '.coffee']
     }
   });

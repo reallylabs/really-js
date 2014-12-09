@@ -1,11 +1,11 @@
 _ = require 'lodash'
-Transport = require '../transport.coffee'
-ReallyError = require '../really-error.coffee'
+Transport = require '../transport'
+ReallyError = require '../really-error'
 WebSocket = require 'ws'
-protocol = require '../protocol.coffee'
+protocol = require '../protocol'
 Emitter = require 'component-emitter'
-CallbacksBuffer = require '../callbacks-buffer.coffee'
-PushHandler = require '../push-handler.coffee'
+CallbacksBuffer = require '../callbacks-buffer'
+PushHandler = require '../push-handler'
 Q = require 'q'
 # TODO: timeout should be taken as a parameter
 # TODO: if connection get closed stop the heartbeat

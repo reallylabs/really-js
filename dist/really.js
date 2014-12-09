@@ -1,8 +1,8 @@
 /*!
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
- *  
- *  Date: Wed Nov 26 2014 16:28:51
+ *
+ *  Date:  Tue Dec 09 2014 20:19:57
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -9052,7 +9052,7 @@ module.exports = {
  */
 var CallbacksBuffer, protocol;
 
-protocol = require('./protocol.coffee');
+protocol = require('./protocol');
 
 CallbacksBuffer = (function() {
   var newTag;
@@ -9095,6 +9095,15 @@ CallbacksBuffer = (function() {
     if (type == null) {
       type = 'default';
     }
+    if (success == null) {
+      success = _.noop;
+    }
+    if (error == null) {
+      error = _.noop;
+    }
+    if (complete == null) {
+      complete = _.noop;
+    }
     tag = newTag.call(this);
     this._callbacks[tag] = {
       type: type,
@@ -9117,37 +9126,110 @@ module.exports = CallbacksBuffer;
 
 
 
-},{"./protocol.coffee":9}],8:[function(require,module,exports){
+},{"./protocol":10}],8:[function(require,module,exports){
+var CollectionRef, Q, ReallyError, protocol, _;
+
+_ = require('lodash');
+
+protocol = require('./protocol');
+
+ReallyError = require('./really-error');
+
+Q = require('q');
+
+CollectionRef = (function() {
+  function CollectionRef(res) {
+    this.res = res;
+    if (!res) {
+      throw new ReallyError('Can not be initialized without resource');
+    }
+    this.rev = 0;
+    Really.on(this.res, function(data) {
+      return this.emit(data.evt, data);
+    });
+  }
+
+  CollectionRef.prototype.create = function(options) {
+    var body, deferred, e, message, onComplete, onError, onSuccess;
+    deferred = new Q.defer();
+    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete, body = options.body;
+    try {
+      message = protocol.createMessage(this.res, body);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError,
+      complete: onComplete
+    });
+  };
+
+  CollectionRef.prototype.read = function(options) {
+    var deferred, e, message, onComplete, onError, onSuccess, protocolOpttions;
+    deferred = new Q.defer();
+    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
+    protocolOpttions = _.omit(options, ['onSuccess', 'onError', 'onComplete']);
+    try {
+      message = protocol.readMessage(this.res, protocolOpttions);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError,
+      complete: onComplete
+    });
+  };
+
+  return CollectionRef;
+
+})();
+
+module.exports = CollectionRef;
+
+
+
+},{"./protocol":10,"./really-error":12,"lodash":3,"q":4}],9:[function(require,module,exports){
 var ObjectRef, Q, ReallyError, protocol;
 
-protocol = require('./protocol.coffee');
+protocol = require('./protocol');
 
-ReallyError = require('./really-error.coffee');
+ReallyError = require('./really-error');
 
 Q = require('q');
 
 ObjectRef = (function() {
   function ObjectRef(res) {
     this.res = res;
+    if (!res) {
+      throw new ReallyError('Can not be initialized without resource');
+    }
     this.rev = 0;
-    debugger;
     Really.on(this.res, function(data) {
       return this.emit(data.evt, data);
     });
   }
 
   ObjectRef.prototype.get = function(options) {
-    var deferred, e, message;
+    var deferred, e, fields, message, onComplete, onError, onSuccess;
     deferred = new Q.defer();
-    if (!options) {
-      deferred.reject(new ReallyError('Can\'t be called without passing arguments'));
-      return deferred.promise;
-    }
+    fields = options.fields, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
     try {
       message = protocol.getMessage(this.res, fields);
     } catch (_error) {
       e = _error;
-      deferred.reject(e);
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
       return deferred.promise;
     }
     return this.channel.send(message, {
@@ -9169,12 +9251,15 @@ ObjectRef = (function() {
       message = protocol.updateMessage(this.res, this.rev, ops);
     } catch (_error) {
       e = _error;
-      deferred.reject(e);
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
       return deferred.promise;
     }
     return this.channel.send(message, {
       success: onSuccess,
-      error: onError
+      error: onError,
+      complete: onComplete
     });
   };
 
@@ -9184,7 +9269,8 @@ ObjectRef = (function() {
     message = protocol.deleteMessage(this.res);
     return this.channel.send(message, {
       success: onSuccess,
-      error: onError
+      error: onError,
+      complete: onComplete
     });
   };
 
@@ -9196,10 +9282,10 @@ module.exports = ObjectRef;
 
 
 
-},{"./protocol.coffee":9,"./really-error.coffee":11,"q":4}],9:[function(require,module,exports){
+},{"./protocol":10,"./really-error":12,"q":4}],10:[function(require,module,exports){
 
 /**
- * Protocol 
+ * Protocol
  * This module is responsible for generating protocol messages
  */
 var ReallyError, VERSION, authenticator, _,
@@ -9207,9 +9293,9 @@ var ReallyError, VERSION, authenticator, _,
 
 _ = require('lodash');
 
-authenticator = require('./authenticator.coffee');
+authenticator = require('./authenticator');
 
-ReallyError = require('./really-error.coffee');
+ReallyError = require('./really-error');
 
 VERSION = '0';
 
@@ -9222,25 +9308,105 @@ module.exports = {
     'get': 'get',
     'update': 'update',
     'delete': 'delete',
-    'heartbeat': 'poke'
+    'heartbeat': 'poke',
+    'subscribe': 'subscribe',
+    'unsubscribe': 'unsubscribe'
   },
-  getInitializationMessage: function() {
+  initializationMessage: function(accessToken) {
     return {
       'type': 'initialization',
       'data': {
         'cmd': this.commands.init,
-        'accessToken': authenticator.getAccessToken()
+        'accessToken': accessToken
       }
     };
   },
-  createMessage: function(res) {
-    return {
+  createMessage: function(res, body) {
+    var message;
+    if (!_.isString(res)) {
+      throw new ReallyError('You should pass a resource parameter as String');
+    }
+    if (!(_.isObject(body) || _.isUndefined(body))) {
+      throw new ReallyError('You should pass a body parameter as Object');
+    }
+    message = {
       type: 'create',
       data: {
         cmd: this.commands.create,
-        res: res
+        r: res
       }
     };
+    if (body) {
+      message['body'] = body;
+    }
+    return message;
+  },
+  readMessage: function(res, options) {
+    var cmdOpts, currnetOption, message, option, supportedOptions, value;
+    cmdOpts = _.omit(options, function(value) {
+      return value === void 0;
+    });
+    supportedOptions = {
+      fields: {
+        valid: _.isArray,
+        message: 'You should pass Array  for "fields" option'
+      },
+      query: {
+        valid: function(query) {
+          return _.isObject(query) && (_.isString(query.fields) || _.isObject(query.values));
+        },
+        message: 'You should pass Object  for "query" option'
+      },
+      limit: {
+        valid: _.isNumber,
+        message: 'You should pass Number  for "limit" option'
+      },
+      skip: {
+        valid: _.isNumber,
+        message: 'You should pass Number  for "skip" option'
+      },
+      sort: {
+        valid: _.isString,
+        message: 'You should pass String  for "sort" option'
+      },
+      token: {
+        valid: _.isString,
+        message: 'You should pass String  for "token" option'
+      },
+      includeTotalCount: {
+        valid: _.isBoolean,
+        message: 'You should pass Boolean  for "includeTotalCount" option'
+      },
+      paginationToken: {
+        valid: _.isString,
+        message: 'You should pass String  for "fields" option'
+      },
+      subscribe: {
+        valid: _.isBoolean,
+        message: 'You should pass Boolean  for "subscribe" option'
+      }
+    };
+    for (option in cmdOpts) {
+      value = cmdOpts[option];
+      if (!(option in supportedOptions)) {
+        throw new ReallyError("The option \"" + option + "\" isn't supported");
+      }
+      currnetOption = supportedOptions[option];
+      if (!currnetOption.valid(value)) {
+        throw new ReallyError(currnetOption.message);
+      }
+    }
+    message = {
+      type: 'read',
+      data: {
+        cmd: this.commands.read,
+        r: res
+      }
+    };
+    if (cmdOpts) {
+      message.data.cmdOpts = cmdOpts;
+    }
+    return message;
   },
   getMessage: function(res, fields) {
     var message;
@@ -9287,11 +9453,58 @@ module.exports = {
     return message;
   },
   deleteMessage: function(res) {
+    if (!_.isString(res)) {
+      throw new ReallyError('You should pass a resource parameter as String');
+    }
     return {
       type: 'delete',
       data: {
         cmd: this.commands["delete"],
         r: res
+      }
+    };
+  },
+  subscribeMessage: function(subscriptions) {
+    var message, subscription, _i, _len;
+    if (!(subscriptions || _.isArray(subscriptions) || _.isObject(subscriptions))) {
+      throw new ReallyError('subscription(s) should be either Object or Array of Objects');
+    }
+    if (!_.isArray(subscriptions)) {
+      subscriptions = [subscriptions];
+    }
+    for (_i = 0, _len = subscriptions.length; _i < _len; _i++) {
+      subscription = subscriptions[_i];
+      if (!(_.isString(subscription.rev) && _.isString(subscription.res))) {
+        throw new ReallyError('You must pass valid resource and revision for subscription object');
+      }
+    }
+    return message = {
+      type: 'subscribe',
+      data: {
+        cmd: this.commands.subscribe,
+        subscriptions: subscriptions
+      }
+    };
+  },
+  unsubscribeMessage: function(subscriptions) {
+    var message, subscription, _i, _len;
+    if (!subscriptions || !_.isArray(subscriptions) || !_.isObject(subscriptions)) {
+      throw new ReallyError('subscription(s) should be either Object or Array of Objects');
+    }
+    if (!_.isArray(subscriptions)) {
+      subscriptions = [subscriptions];
+    }
+    for (_i = 0, _len = subscriptions.length; _i < _len; _i++) {
+      subscription = subscriptions[_i];
+      if (!(_.isString(subscription.rev) && _.isString(subscriptions.res))) {
+        throw new ReallyError('You must pass valid resource and revision for subscription object');
+      }
+    }
+    return message = {
+      type: 'unsubscribe',
+      data: {
+        cmd: this.commands.unsubscribe,
+        subscriptions: subscriptions
       }
     };
   },
@@ -9313,7 +9526,7 @@ module.exports = {
 
 
 
-},{"./authenticator.coffee":6,"./really-error.coffee":11,"lodash":3}],10:[function(require,module,exports){
+},{"./authenticator":6,"./really-error":12,"lodash":3}],11:[function(require,module,exports){
 module.exports = {
   handle: function(message) {
     if (message.r) {
@@ -9333,7 +9546,7 @@ module.exports = {
 
 
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 
 /**
  * ReallyError
@@ -9360,25 +9573,78 @@ module.exports = ReallyError;
 
 
 
-},{}],12:[function(require,module,exports){
-var Channel, Emitter, ObjectRef, Really;
+},{}],13:[function(require,module,exports){
+var Channel, CollectionRef, Emitter, ObjectRef, Really, ReallyError, protocol;
 
-Channel = require('./transports/webSocket.coffee');
+Channel = require('./transports/webSocket');
 
 Emitter = require('component-emitter');
 
-ObjectRef = require('./object-ref.coffee');
+protocol = require('./protocol');
+
+ObjectRef = require('./object-ref');
+
+ReallyError = require('./really-error');
+
+CollectionRef = require('./collection-ref');
 
 Really = (function() {
-  function Really(domain) {
+  function Really(domain, options) {
+    var defaults;
+    if (options.heartbeatInterval < 0 || options.heartbeatTimeout < 0) {
+      throw new ReallyError('Heartbeat interval and timeout should be positive values only');
+    }
     console.log('Really Object initialized');
-    this.channel = new Channel(domain, 'FakeAccessToken');
+    defaults = {
+      heartbeatInterval: 5e3,
+      heartbeatTimeout: 5e3
+    };
+    options = _.defaults(options, defaults);
+    this.channel = new Channel(domain, 'FakeAccessToken', options);
     this.channel.connect();
     this.ObjectRef = ObjectRef;
     this.ObjectRef.prototype.channel = this.channel;
+    this.CollectionRef = CollectionRef;
+    this.CollectionRef.prototype.channel = this.channel;
   }
 
   Emitter(Really);
+
+  Really.prototype.subscribe = function(res, rev, options) {
+    var e, message, onComplete, onError, onSuccess;
+    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
+    try {
+      message = protocol.subscribeMessage(res);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError
+    });
+  };
+
+  Really.prototype.unsubscribe = function(res, options) {
+    var e, message, onComplete, onError, onSuccess;
+    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
+    try {
+      message = protocol.unsubscribeMessage(res);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError
+    });
+  };
 
   return Really;
 
@@ -9388,7 +9654,7 @@ module.exports = Really;
 
 
 
-},{"./object-ref.coffee":8,"./transports/webSocket.coffee":14,"component-emitter":2}],13:[function(require,module,exports){
+},{"./collection-ref":8,"./object-ref":9,"./protocol":10,"./really-error":12,"./transports/webSocket":15,"component-emitter":2}],14:[function(require,module,exports){
 
 /**
  * Transport
@@ -9401,17 +9667,28 @@ var Transport;
 Transport = (function() {
   function Transport(url) {
     this.url = url;
+    void 0;
   }
 
-  Transport.prototype.connect = function() {};
+  Transport.prototype.connect = function() {
+    return void 0;
+  };
 
-  Transport.prototype.disconnect = function() {};
+  Transport.prototype.disconnect = function() {
+    return void 0;
+  };
 
-  Transport.prototype.send = function(message) {};
+  Transport.prototype.send = function(message) {
+    return void 0;
+  };
 
-  Transport.prototype.isConnected = function() {};
+  Transport.prototype.isConnected = function() {
+    return void 0;
+  };
 
-  Transport.prototype.on = function(eventName, callback) {};
+  Transport.prototype.on = function(eventName, callback) {
+    return void 0;
+  };
 
   return Transport;
 
@@ -9421,26 +9698,26 @@ module.exports = Transport;
 
 
 
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 var CallbacksBuffer, Emitter, PushHandler, Q, ReallyError, Transport, WebSocket, WebSocketTransport, protocol, _,
   __hasProp = {}.hasOwnProperty,
   __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
 _ = require('lodash');
 
-Transport = require('../transport.coffee');
+Transport = require('../transport');
 
-ReallyError = require('../really-error.coffee');
+ReallyError = require('../really-error');
 
 WebSocket = require('ws');
 
-protocol = require('../protocol.coffee');
+protocol = require('../protocol');
 
 Emitter = require('component-emitter');
 
-CallbacksBuffer = require('../callbacks-buffer.coffee');
+CallbacksBuffer = require('../callbacks-buffer');
 
-PushHandler = require('../push-handler.coffee');
+PushHandler = require('../push-handler');
 
 Q = require('q');
 
@@ -9449,9 +9726,10 @@ WebSocketTransport = (function(_super) {
 
   __extends(WebSocketTransport, _super);
 
-  function WebSocketTransport(domain, accessToken) {
+  function WebSocketTransport(domain, accessToken, options) {
     this.domain = domain;
     this.accessToken = accessToken;
+    this.options = options;
     if (!(domain && accessToken)) {
       throw new ReallyError('Can\'t initialize connection without passing domain and access token');
     }
@@ -9459,8 +9737,8 @@ WebSocketTransport = (function(_super) {
       throw new ReallyError('Only <String> values are allowed for domain and access token');
     }
     this.socket = null;
-    this.callbacksBuffer = new CallbacksBuffer;
-    this._msessagesBuffer = [];
+    this.callbacksBuffer = new CallbacksBuffer();
+    this._messagesBuffer = [];
     this.pushHandler = PushHandler;
     this.initialized = false;
     this.url = "" + domain + "/v" + protocol.clientVersion + "/socket";
@@ -9505,31 +9783,34 @@ WebSocketTransport = (function(_super) {
     message = protocol.heartbeatMessage();
     success = (function(_this) {
       return function(data) {
-        clearTimeout(_this.heartbeatTimeOut);
+        clearTimeout(_this.heartbeatTimeoutID);
         return setTimeout(function() {
           return _this._startHeartbeat.call(_this);
-        }, 5e3);
+        }, _this.options.heartbeatInterval);
       };
     })(this);
     this.send(message, {
       success: success
     });
-    return this.heartbeatTimeOut = setTimeout((function(_this) {
+    return this.heartbeatTimeoutID = setTimeout((function(_this) {
       return function() {
-        clearTimeout(_this.heartbeatTimeOut);
+        clearTimeout(_this.heartbeatTimeoutID);
         _this.emit('heartbeatLag');
         return _this.disconnect();
       };
-    })(this), 5e3);
+    })(this), this.options.heartbeatTimeout + this.options.heartbeatInterval);
   };
 
   WebSocketTransport.prototype.send = function(message, options) {
     var complete, deferred, error, success, type;
-    if (!this.isConnected() || this.socket.readyState === this.socket.CONNECTING) {
+    if (options == null) {
+      options = {};
+    }
+    if (!(this.isConnected() || this.isConnecting())) {
       throw new ReallyError('Connection to the server is not established');
     }
     if (!(this.initialized || message.type === 'initialization')) {
-      this._msessagesBuffer.push({
+      this._messagesBuffer.push({
         message: message,
         options: options
       });
@@ -9558,7 +9839,6 @@ WebSocketTransport = (function(_super) {
       error: error,
       complete: complete
     });
-    console.log('send');
     this.socket.send(JSON.stringify(message.data));
     return deferred.promise;
   };
@@ -9579,7 +9859,7 @@ WebSocketTransport = (function(_super) {
         return _this.emit('initializationError', data);
       };
     })(this);
-    msg = protocol.getInitializationMessage();
+    msg = protocol.initializationMessage(this.accessToken);
     return this.send(msg, {
       success: success,
       error: error
@@ -9601,7 +9881,7 @@ WebSocketTransport = (function(_super) {
     return setTimeout((function(_this) {
       return function() {
         var message, options, _i, _len, _ref, _ref1, _results;
-        _ref = _this._msessagesBuffer;
+        _ref = _this._messagesBuffer;
         _results = [];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           _ref1 = _ref[_i], message = _ref1.message, options = _ref1.options;
@@ -9617,6 +9897,13 @@ WebSocketTransport = (function(_super) {
       return false;
     }
     return this.socket.readyState === this.socket.OPEN;
+  };
+
+  WebSocketTransport.prototype.isConnecting = function() {
+    if (!this.socket) {
+      return false;
+    }
+    return this.socket.readyState === this.socket.CONNECTING;
   };
 
   _destroy = function() {
@@ -9641,5 +9928,5 @@ module.exports = WebSocketTransport;
 
 
 
-},{"../callbacks-buffer.coffee":7,"../protocol.coffee":9,"../push-handler.coffee":10,"../really-error.coffee":11,"../transport.coffee":13,"component-emitter":2,"lodash":3,"q":4,"ws":5}]},{},[12])(12)
+},{"../callbacks-buffer":7,"../protocol":10,"../push-handler":11,"../really-error":12,"../transport":14,"component-emitter":2,"lodash":3,"q":4,"ws":5}]},{},[13])(13)
 });
