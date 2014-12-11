@@ -3,8 +3,8 @@
  * This module is responsible for generating protocol messages
 ###
 _ = require 'lodash'
-authenticator = require './authenticator.coffee'
-ReallyError = require './really-error.coffee'
+authenticator = require './authenticator'
+ReallyError = require './really-error'
 
 VERSION = '0'
 module.exports =
@@ -144,7 +144,7 @@ module.exports =
 
     subscriptions = [subscriptions] if not _.isArray subscriptions
     for subscription in subscriptions
-      if not ( _.isString(subscription.rev) and _.isString(subscriptions.res) )
+      if not ( _.isString(subscription.rev) and _.isString(subscription.res) )
         throw new ReallyError('You must pass valid resource and revision for subscription object')
     
     message =

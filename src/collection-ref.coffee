@@ -1,6 +1,6 @@
 _ = require 'lodash'
-protocol = require './protocol.coffee'
-ReallyError = require './really-error.coffee'
+protocol = require './protocol'
+ReallyError = require './really-error'
 Q = require 'q'
 
 class CollectionRef

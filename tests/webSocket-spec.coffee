@@ -2,10 +2,10 @@
 # Module dependencies.
 #
 
-CONFIG              = require './support/server/config.coffee'
-protocol            = require '../src/protocol.coffee'
-ReallyError         = require '../src/really-error.coffee'
-WebSocketTransport  = require '../src/transports/webSocket.coffee'
+CONFIG              = require './support/server/config'
+protocol            = require '../src/protocol'
+ReallyError         = require '../src/really-error'
+WebSocketTransport  = require '../src/transports/webSocket'
 
 options =
   heartbeatInterval: 5e3 # 5 seconds

@@ -2,8 +2,8 @@
 # Dependencies.
 #
 
-protocol     = require '../src/protocol.coffee'
-ReallyError  = require '../src/really-error.coffee'
+protocol     = require '../src/protocol'
+ReallyError  = require '../src/really-error'
 
 describe 'protocol', ->
 

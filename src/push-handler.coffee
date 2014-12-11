@@ -1,4 +1,3 @@
-
 module.exports =
   handle: (message) ->
     # events on objctRef and CollectionRef

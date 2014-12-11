@@ -2,10 +2,10 @@
 # Module dependencies.
 #
 
-protocol            = require '../src/protocol.coffee'
-ReallyError         = require '../src/really-error.coffee'
+protocol            = require '../src/protocol'
+ReallyError         = require '../src/really-error'
 Q                   = require 'q'
-ObjectRef           = require '../src/object-ref.coffee'
+ObjectRef           = require '../src/object-ref'
 
 describe 'ObjectRef', ->
 
