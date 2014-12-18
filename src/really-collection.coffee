@@ -3,16 +3,11 @@ protocol = require './protocol'
 ReallyError = require './really-error'
 Q = require 'q'
 
-class CollectionRef
-  constructor: (@res) ->
-    throw new ReallyError('Can not be initialized without resource') unless res
-    @rev = 0
-    # Listen on event name that matches res of CollectionRef and fire event on
-    # this CollectionRef
-    Really.on @res, (data) ->
-      @emit data.evt, data
+class ReallyCollection
+  constructor: (@channel) -> return this
 
-  create: (options) ->
+  create: (res, options) ->
+    throw new ReallyError('Can not be initialized without resource') unless res
     deferred = new Q.defer()
     {onSuccess, onError, onComplete, body} = options
 
@@ -22,11 +17,13 @@ class CollectionRef
       setTimeout( ->
         deferred.reject e
       , 0)
+      
       return deferred.promise
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
-  read: (options) ->
+  read: (res, options) ->
+    throw new ReallyError('Can not be initialized without resource') unless res
     deferred = new Q.defer()
 
     {onSuccess, onError, onComplete} = options
@@ -42,6 +39,8 @@ class CollectionRef
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
+  onCreate: (res, callback) ->
+    @on "#{res}:create", (data) ->
+      callback data
 
-
-module.exports = CollectionRef
+module.exports = ReallyCollection
