@@ -7,16 +7,12 @@ Emitter = require 'component-emitter'
 CallbacksBuffer = require '../callbacks-buffer'
 PushHandler = require '../push-handler'
 Q = require 'q'
-# TODO: timeout should be taken as a parameter
+Heartbeat = require '../heartbeat'
+Logger = require '../logger'
+logger = new Logger()
 # TODO: if connection get closed stop the heartbeat
 class WebSocketTransport extends Transport
   constructor: (@domain, @accessToken, @options) ->
-    unless domain and accessToken
-      throw new ReallyError('Can\'t initialize connection without passing domain and access token')
-    
-    unless _.isString(domain) and _.isString(accessToken)
-      throw new ReallyError('Only <String> values are allowed for domain and access token')
-    
     @socket = null
     @callbacksBuffer = new CallbacksBuffer()
     @_messagesBuffer = []
@@ -24,17 +20,34 @@ class WebSocketTransport extends Transport
     # connection not initialized yet "we haven't send first message yet"
     @initialized =  false
     @url = "#{domain}/v#{protocol.clientVersion}/socket"
+
+    defaults =
+      reconnectionMaxTimeout: 30e3
+      heartbeatTimeout: 2e3
+      heartbeatInterval: 5e3
+      reconnect: true
+      onDisconnect: 'buffer'
+    
+    @options = _.defaults options, defaults
+  
   # Mixin Emitter
   Emitter(WebSocketTransport.prototype)
 
-  _bindWebSocketEvents = ->
+  _bindWebSocketEvents = (deferred) ->
     @socket.addEventListener 'open', =>
+      @attempts = 0
+      deferred.resolve()
       _sendFirstMessage.call(this)
       @emit 'opened'
     
     @socket.addEventListener 'close', =>
-      @emit 'closed'
-      @disconnect()
+      
+      if @options.reconnect
+        @emit 'reconnecting'
+        @reconnect(@options.reconnectionMaxTimeout)
+      else
+        @emit 'closed'
+        @disconnect()
     
     @socket.addEventListener 'error', =>
       @emit 'error'
@@ -49,59 +62,59 @@ class WebSocketTransport extends Transport
 
       @emit 'message', data
 
-  _startHeartbeat: () ->
-    message = protocol.heartbeatMessage()
+  send: (message, options = {}, deferred = Q.defer()) ->
+    if @isConnected()
+      {type} = message
+     
+      success = (data) ->
+        options.success? data
+        deferred.resolve data
+     
+      error = (reason) ->
+        options.error? reason
+        deferred.reject reason
+
+      complete = (data) ->
+        options.complete? data
+      
+      message.data.tag = @callbacksBuffer.add {type, success, error, complete}
+      @socket.send JSON.stringify message.data
+      
+      return deferred.promise
     
-    success = (data) =>
-      clearTimeout @heartbeatTimeoutID
-      setTimeout(=>
-        @_startHeartbeat.call(this)
-      , @options.heartbeatInterval)
+    else
+      strategy = if _.isFunction @options.onDisconnect then 'custom' else @options.onDisconnect
+      _handleDisconnected = (strategy = 'fail') ->
+        fail = () ->
+          deferred.reject new ReallyError('Connection to the server is not established')
+        
+        buffer = () ->
+          @_messagesBuffer.push {message, options, deferred}
 
-    @send message, {success}
+        custom = () ->
+          try
+            @options.onDisconnect(this, @_messagesBuffer, ReallyError)
+          catch e
+            throw new ReallyError('error invoking custom callback')
+        
+        strategies = {fail, buffer, custom}
+        try
+          strategies[strategy]()
+        catch e
+          throw e if e instanceof ReallyError
+          throw new ReallyError('Strategy not found')
+          
+      _handleDisconnected(strategy)
 
-    @heartbeatTimeoutID =
-    setTimeout( =>
-      # we've not received heartbeat response from server yet just die
-      clearTimeout @heartbeatTimeoutID
-      @emit 'heartbeatLag'
-      @disconnect()
-    
-    , @options.heartbeatTimeout + @options.heartbeatInterval)
- 
-  send: (message, options = {}) ->
-    unless @isConnected() or @isConnecting()
-      throw new ReallyError('Connection to the server is not established')
-    # if connection is not initialized and this isn't the initialization message
-    # buffer messages and send them after initialization
-    unless @initialized or message.type is 'initialization'
-      @_messagesBuffer.push {message, options}
-      return
-    # connection is initialized send the message
-    deferred = Q.defer()
-    {type} = message
-   
-    success = (data) ->
-      options.success? data
-      deferred.resolve data
-   
-    error = (reason) ->
-      options.error? reason
-      deferred.reject reason
+      return deferred.promise
 
-    complete = (data) ->
-      options.complete? data
-   
-    message.data.tag = @callbacksBuffer.add {type, success, error, complete}
-    @socket.send JSON.stringify message.data
-    return deferred.promise
-   
   _sendFirstMessage = ->
     success = (data) =>
       @initialized = true
       # send messages in buffer after the connection being initialized
       _.flush.call(this)
-      @_startHeartbeat()
+      heartbeat = new Heartbeat(@options.heartbeatInterval, @options.heartbeatTimeout)
+      heartbeat.start(this)
       @emit 'initialized', data
     
     error = (data) =>
@@ -111,19 +124,34 @@ class WebSocketTransport extends Transport
    
     @send msg, {success, error}
 
-  connect: () ->
-    # singleton websocket
-    @socket ?= new WebSocket(@url)
-   
+  connect: (deferred = Q.defer()) ->
+    @socket = new WebSocket(@url)
     @socket.addEventListener 'error', _.once ->
       console.log "error initializing websocket with URL: #{@url}"
    
-    _bindWebSocketEvents.call(this)
-    return @socket
+    _bindWebSocketEvents.call(this, deferred)
+    return deferred.promise
+  
+  reconnect: (timeout) ->
+    @attempts += 1
+    
+    generateTimeout: () ->
+      maxInterval = (Math.pow(2, @attemps) - 1) * 1000
+      if maxInterval > @options.reconnectionMaxTimeout
+        maxInterval = @options.reconnectionMaxTimeout
+      
+      Math.random() * maxInterval
+    
+    @connect().timeout(timeout).catch () ->
+      timeout = generateTimeout timeout
+      reconnect(timeout)
+    
+
+
   
   _.flush = ->
     setTimeout(=>
-      @send(message, options) for {message, options} in @_messagesBuffer
+      @send(message, options, deferred) for {message, options, deferred} in @_messagesBuffer
     , 0)
 
   isConnected: () ->

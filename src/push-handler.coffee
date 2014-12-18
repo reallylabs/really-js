@@ -1,8 +1,9 @@
 module.exports =
   handle: (message) ->
-    # events on objctRef and CollectionRef
+    # events on object and collection
     if message.r
       Really.emit message.r, message
+      Really.emit "#{message.r}:#{message.cmd}", message
       return
     # General events
     switch message.evt
@@ -10,7 +11,6 @@ module.exports =
         console.log 'kicked'
       when 'revoked'
         console.log 'revoked'
-
       else
         console.log 'unknown event'
 

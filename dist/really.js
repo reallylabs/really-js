@@ -2,7 +2,7 @@
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
  *
- *  Date:  Tue Dec 09 2014 20:19:57
+ *  Date:  Thu Dec 18 2014 16:42:45
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -9067,21 +9067,21 @@ CallbacksBuffer = (function() {
     tag = message.tag;
     if (protocol.isErrorMessage(message)) {
       try {
-        this._callbacks[tag]['error'].call();
+        this._callbacks[tag]['error'].call(null, message);
       } catch (_error) {
         e = _error;
         console.log('Error happened when trying to execute your error callback', e.stack);
       }
     } else {
       try {
-        this._callbacks[tag]['success'].call();
+        this._callbacks[tag]['success'].call(null, message);
       } catch (_error) {
         e = _error;
         console.log('Error happened when trying to execute your success callback', e.stack);
       }
     }
     try {
-      this._callbacks[tag]['complete'].call();
+      this._callbacks[tag]['complete'].call(null, message);
     } catch (_error) {
       e = _error;
       console.log('Error happened when trying to execute your complete callback', e.stack);
@@ -9127,162 +9127,136 @@ module.exports = CallbacksBuffer;
 
 
 },{"./protocol":10}],8:[function(require,module,exports){
-var CollectionRef, Q, ReallyError, protocol, _;
+var Heartbeat, Logger, Q, logger, protocol;
+
+protocol = require('./protocol');
+
+Q = require('q');
+
+Logger = require('./logger');
+
+logger = new Logger();
+
+Heartbeat = (function() {
+  var _ping;
+
+  function Heartbeat(interval, timeout) {
+    this.interval = interval != null ? interval : 5e3;
+    this.timeout = timeout != null ? timeout : 5e3;
+    logger.debug("Heartbeat: initialize with interval: " + interval + " and timeout: " + timeout);
+  }
+
+  Heartbeat.prototype.start = function(websocket) {
+    this.websocket = websocket;
+    _ping.call(this);
+    return logger.debug("Heartbeat: started interval: " + this.interval + " timeout: " + this.timeout);
+  };
+
+  _ping = function() {
+    var error, message, pingPromise, success;
+    message = protocol.heartbeatMessage();
+    pingPromise = this.websocket.send(message);
+    success = (function(_this) {
+      return function(data) {
+        var lag, now;
+        now = Date.now();
+        lag = (now - data.timestamp) * 0.001;
+        logger.debug("Heartbeat: lag " + lag + " second(s)");
+        return Q.delay(_this.interval).then(function() {
+          logger.debug("Heartbeat interval: " + _this.interval + " timeout: " + _this.timeout);
+          return _ping.call(_this);
+        });
+      };
+    })(this);
+    error = function() {
+      logger.debug('Heartbeat: lag exceed');
+      return this.websocket.disconnect();
+    };
+    return pingPromise.timeout(this.interval + this.timeout).then(success, error);
+  };
+
+  return Heartbeat;
+
+})();
+
+module.exports = Heartbeat;
+
+
+
+},{"./logger":9,"./protocol":10,"q":4}],9:[function(require,module,exports){
+var Logger, _,
+  __slice = [].slice;
 
 _ = require('lodash');
 
-protocol = require('./protocol');
+Logger = (function() {
+  function Logger() {}
 
-ReallyError = require('./really-error');
-
-Q = require('q');
-
-CollectionRef = (function() {
-  function CollectionRef(res) {
-    this.res = res;
-    if (!res) {
-      throw new ReallyError('Can not be initialized without resource');
+  Logger.prototype.debug = function() {
+    var args, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    args.unshift('Really::Debug::');
+    if (typeof console !== "undefined" && console !== null) {
+      if ((_ref = console.debug) != null) {
+        _ref.apply(console, args);
+      }
     }
-    this.rev = 0;
-    Really.on(this.res, function(data) {
-      return this.emit(data.evt, data);
-    });
-  }
-
-  CollectionRef.prototype.create = function(options) {
-    var body, deferred, e, message, onComplete, onError, onSuccess;
-    deferred = new Q.defer();
-    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete, body = options.body;
-    try {
-      message = protocol.createMessage(this.res, body);
-    } catch (_error) {
-      e = _error;
-      setTimeout(function() {
-        return deferred.reject(e);
-      }, 0);
-      return deferred.promise;
-    }
-    return this.channel.send(message, {
-      success: onSuccess,
-      error: onError,
-      complete: onComplete
-    });
+    return args;
   };
 
-  CollectionRef.prototype.read = function(options) {
-    var deferred, e, message, onComplete, onError, onSuccess, protocolOpttions;
-    deferred = new Q.defer();
-    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
-    protocolOpttions = _.omit(options, ['onSuccess', 'onError', 'onComplete']);
-    try {
-      message = protocol.readMessage(this.res, protocolOpttions);
-    } catch (_error) {
-      e = _error;
-      setTimeout(function() {
-        return deferred.reject(e);
-      }, 0);
-      return deferred.promise;
+  Logger.prototype.info = function() {
+    var args, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    args.unshift('Really::Info::');
+    if (typeof console !== "undefined" && console !== null) {
+      if ((_ref = console.log) != null) {
+        _ref.apply(console, args);
+      }
     }
-    return this.channel.send(message, {
-      success: onSuccess,
-      error: onError,
-      complete: onComplete
-    });
+    return args;
   };
 
-  return CollectionRef;
+  Logger.prototype.warn = function() {
+    var args, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    args.unshift('Really::Warn::');
+    if (typeof console !== "undefined" && console !== null) {
+      if ((_ref = console.warn) != null) {
+        _ref.apply(console, args);
+      }
+    }
+    return args;
+  };
+
+  Logger.prototype.error = function() {
+    var args, code, errorName, message, prefix, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    prefix = 'Really::Error::';
+    if (_.isObject(args[0])) {
+      code = args[0].code;
+      message = args[0].message;
+      errorName = args[0].errorName;
+      prefix = "" + prefix + errorName + "::" + code + ":: " + message;
+      args.shift();
+    }
+    args.unshift(prefix);
+    if (typeof console !== "undefined" && console !== null) {
+      if ((_ref = console.error) != null) {
+        _ref.apply(console, args);
+      }
+    }
+    return args;
+  };
+
+  return Logger;
 
 })();
 
-module.exports = CollectionRef;
+module.exports = Logger;
 
 
 
-},{"./protocol":10,"./really-error":12,"lodash":3,"q":4}],9:[function(require,module,exports){
-var ObjectRef, Q, ReallyError, protocol;
-
-protocol = require('./protocol');
-
-ReallyError = require('./really-error');
-
-Q = require('q');
-
-ObjectRef = (function() {
-  function ObjectRef(res) {
-    this.res = res;
-    if (!res) {
-      throw new ReallyError('Can not be initialized without resource');
-    }
-    this.rev = 0;
-    Really.on(this.res, function(data) {
-      return this.emit(data.evt, data);
-    });
-  }
-
-  ObjectRef.prototype.get = function(options) {
-    var deferred, e, fields, message, onComplete, onError, onSuccess;
-    deferred = new Q.defer();
-    fields = options.fields, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
-    try {
-      message = protocol.getMessage(this.res, fields);
-    } catch (_error) {
-      e = _error;
-      setTimeout(function() {
-        return deferred.reject(e);
-      }, 0);
-      return deferred.promise;
-    }
-    return this.channel.send(message, {
-      success: onSuccess,
-      error: onError,
-      complete: onComplete
-    });
-  };
-
-  ObjectRef.prototype.update = function(options) {
-    var deferred, e, message, onComplete, onError, onSuccess, ops;
-    deferred = new Q.defer();
-    if (!options) {
-      deferred.reject(new ReallyError('Can\'t be called without passing arguments'));
-      return deferred.promise;
-    }
-    ops = options.ops, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
-    try {
-      message = protocol.updateMessage(this.res, this.rev, ops);
-    } catch (_error) {
-      e = _error;
-      setTimeout(function() {
-        return deferred.reject(e);
-      }, 0);
-      return deferred.promise;
-    }
-    return this.channel.send(message, {
-      success: onSuccess,
-      error: onError,
-      complete: onComplete
-    });
-  };
-
-  ObjectRef.prototype["delete"] = function(options) {
-    var message, onComplete, onError, onSuccess;
-    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
-    message = protocol.deleteMessage(this.res);
-    return this.channel.send(message, {
-      success: onSuccess,
-      error: onError,
-      complete: onComplete
-    });
-  };
-
-  return ObjectRef;
-
-})();
-
-module.exports = ObjectRef;
-
-
-
-},{"./protocol":10,"./really-error":12,"q":4}],10:[function(require,module,exports){
+},{"lodash":3}],10:[function(require,module,exports){
 
 /**
  * Protocol
@@ -9526,11 +9500,12 @@ module.exports = {
 
 
 
-},{"./authenticator":6,"./really-error":12,"lodash":3}],11:[function(require,module,exports){
+},{"./authenticator":6,"./really-error":13,"lodash":3}],11:[function(require,module,exports){
 module.exports = {
   handle: function(message) {
     if (message.r) {
       Really.emit(message.r, message);
+      Really.emit("" + message.r + ":" + message.cmd, message);
       return;
     }
     switch (message.evt) {
@@ -9547,6 +9522,84 @@ module.exports = {
 
 
 },{}],12:[function(require,module,exports){
+var Q, ReallyCollection, ReallyError, protocol, _;
+
+_ = require('lodash');
+
+protocol = require('./protocol');
+
+ReallyError = require('./really-error');
+
+Q = require('q');
+
+ReallyCollection = (function() {
+  function ReallyCollection(channel) {
+    this.channel = channel;
+    return this;
+  }
+
+  ReallyCollection.prototype.create = function(res, options) {
+    var body, deferred, e, message, onComplete, onError, onSuccess;
+    if (!res) {
+      throw new ReallyError('Can not be initialized without resource');
+    }
+    deferred = new Q.defer();
+    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete, body = options.body;
+    try {
+      message = protocol.createMessage(this.res, body);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError,
+      complete: onComplete
+    });
+  };
+
+  ReallyCollection.prototype.read = function(res, options) {
+    var deferred, e, message, onComplete, onError, onSuccess, protocolOpttions;
+    if (!res) {
+      throw new ReallyError('Can not be initialized without resource');
+    }
+    deferred = new Q.defer();
+    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
+    protocolOpttions = _.omit(options, ['onSuccess', 'onError', 'onComplete']);
+    try {
+      message = protocol.readMessage(this.res, protocolOpttions);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError,
+      complete: onComplete
+    });
+  };
+
+  ReallyCollection.prototype.onCreate = function(res, callback) {
+    return this.on("" + res + ":create", function(data) {
+      return callback(data);
+    });
+  };
+
+  return ReallyCollection;
+
+})();
+
+module.exports = ReallyCollection;
+
+
+
+},{"./protocol":10,"./really-error":13,"lodash":3,"q":4}],13:[function(require,module,exports){
 
 /**
  * ReallyError
@@ -9562,6 +9615,7 @@ ReallyError = (function(_super) {
 
   function ReallyError(message) {
     this.message = message != null ? message : 'Unknown Error';
+    Error.captureStackTrace(this, ReallyError);
     this.name = 'ReallyError';
   }
 
@@ -9573,78 +9627,145 @@ module.exports = ReallyError;
 
 
 
-},{}],13:[function(require,module,exports){
-var Channel, CollectionRef, Emitter, ObjectRef, Really, ReallyError, protocol;
-
-Channel = require('./transports/webSocket');
-
-Emitter = require('component-emitter');
+},{}],14:[function(require,module,exports){
+var Q, ReallyError, ReallyObject, protocol;
 
 protocol = require('./protocol');
 
-ObjectRef = require('./object-ref');
+ReallyError = require('./really-error');
+
+Q = require('q');
+
+ReallyObject = (function() {
+  function ReallyObject(channel) {
+    this.channel = channel;
+    return this;
+  }
+
+  ReallyObject.prototype.get = function(res, options) {
+    var deferred, e, fields, message, onComplete, onError, onSuccess;
+    if (!res) {
+      throw new ReallyError('Can not be initialized without resource');
+    }
+    deferred = new Q.defer();
+    fields = options.fields, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
+    try {
+      message = protocol.getMessage(res, fields);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError,
+      complete: onComplete
+    });
+  };
+
+  ReallyObject.prototype.update = function(res, rev, options) {
+    var deferred, e, message, onComplete, onError, onSuccess, ops;
+    if (!res) {
+      throw new ReallyError('Can not be initialized without resource');
+    }
+    deferred = new Q.defer();
+    if (!options) {
+      deferred.reject(new ReallyError('Can\'t be called without passing arguments'));
+      return deferred.promise;
+    }
+    ops = options.ops, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
+    try {
+      message = protocol.updateMessage(res, ops);
+    } catch (_error) {
+      e = _error;
+      setTimeout(function() {
+        return deferred.reject(e);
+      }, 0);
+      return deferred.promise;
+    }
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError,
+      complete: onComplete
+    });
+  };
+
+  ReallyObject.prototype["delete"] = function(res, options) {
+    var message, onComplete, onError, onSuccess;
+    if (!res) {
+      throw new ReallyError('Can not be initialized without resource');
+    }
+    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
+    message = protocol.deleteMessage(res);
+    return this.channel.send(message, {
+      success: onSuccess,
+      error: onError,
+      complete: onComplete
+    });
+  };
+
+  ReallyObject.prototype.onUpdate = function(res, callback) {
+    return this.on("" + res + ":update", function(data) {
+      return callback(data);
+    });
+  };
+
+  ReallyObject.prototype.onDelete = function(res, callback) {
+    return this.on("" + res + ":delete", function(data) {
+      return callback(data);
+    });
+  };
+
+  return ReallyObject;
+
+})();
+
+module.exports = ReallyObject;
+
+
+
+},{"./protocol":10,"./really-error":13,"q":4}],15:[function(require,module,exports){
+
+/**
+ * really
+ * name space for application the parent for object & collection functions
+ */
+var Really, ReallyCollection, ReallyError, ReallyObject, Transport, store, _;
+
+Transport = require('./transports/webSocket');
+
+ReallyObject = require('./really-object');
+
+ReallyCollection = require('./really-collection');
 
 ReallyError = require('./really-error');
 
-CollectionRef = require('./collection-ref');
+_ = require('lodash');
+
+store = {};
 
 Really = (function() {
-  function Really(domain, options) {
-    var defaults;
-    if (options.heartbeatInterval < 0 || options.heartbeatTimeout < 0) {
-      throw new ReallyError('Heartbeat interval and timeout should be positive values only');
+  function Really(domain, accessToken, options) {
+    var transport;
+    if (!(domain && accessToken)) {
+      throw new ReallyError('Can\'t initialize Really without passing domain and access token');
     }
-    console.log('Really Object initialized');
-    defaults = {
-      heartbeatInterval: 5e3,
-      heartbeatTimeout: 5e3
-    };
-    options = _.defaults(options, defaults);
-    this.channel = new Channel(domain, 'FakeAccessToken', options);
-    this.channel.connect();
-    this.ObjectRef = ObjectRef;
-    this.ObjectRef.prototype.channel = this.channel;
-    this.CollectionRef = CollectionRef;
-    this.CollectionRef.prototype.channel = this.channel;
+    if (!(_.isString(domain) && _.isString(accessToken))) {
+      throw new ReallyError('Only <String> values are allowed for domain and access token');
+    }
+    if (store[domain]) {
+      this.object = store[domain]['object'];
+      this.collection = store[domain]['collection'];
+    } else {
+      transport = new Transport(domain, accessToken, options);
+      store[domain] = {};
+      this.object = store[domain]['object'] = new ReallyObject(transport);
+      this.collection = store[domain]['collection'] = new ReallyCollection(transport);
+    }
+    return this;
   }
-
-  Emitter(Really);
-
-  Really.prototype.subscribe = function(res, rev, options) {
-    var e, message, onComplete, onError, onSuccess;
-    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
-    try {
-      message = protocol.subscribeMessage(res);
-    } catch (_error) {
-      e = _error;
-      setTimeout(function() {
-        return deferred.reject(e);
-      }, 0);
-      return deferred.promise;
-    }
-    return this.channel.send(message, {
-      success: onSuccess,
-      error: onError
-    });
-  };
-
-  Really.prototype.unsubscribe = function(res, options) {
-    var e, message, onComplete, onError, onSuccess;
-    onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
-    try {
-      message = protocol.unsubscribeMessage(res);
-    } catch (_error) {
-      e = _error;
-      setTimeout(function() {
-        return deferred.reject(e);
-      }, 0);
-      return deferred.promise;
-    }
-    return this.channel.send(message, {
-      success: onSuccess,
-      error: onError
-    });
-  };
 
   return Really;
 
@@ -9654,7 +9775,7 @@ module.exports = Really;
 
 
 
-},{"./collection-ref":8,"./object-ref":9,"./protocol":10,"./really-error":12,"./transports/webSocket":15,"component-emitter":2}],14:[function(require,module,exports){
+},{"./really-collection":12,"./really-error":13,"./really-object":14,"./transports/webSocket":17,"lodash":3}],16:[function(require,module,exports){
 
 /**
  * Transport
@@ -9698,8 +9819,8 @@ module.exports = Transport;
 
 
 
-},{}],15:[function(require,module,exports){
-var CallbacksBuffer, Emitter, PushHandler, Q, ReallyError, Transport, WebSocket, WebSocketTransport, protocol, _,
+},{}],17:[function(require,module,exports){
+var CallbacksBuffer, Emitter, Heartbeat, Logger, PushHandler, Q, ReallyError, Transport, WebSocket, WebSocketTransport, logger, protocol, _,
   __hasProp = {}.hasOwnProperty,
   __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -9721,42 +9842,58 @@ PushHandler = require('../push-handler');
 
 Q = require('q');
 
+Heartbeat = require('../heartbeat');
+
+Logger = require('../logger');
+
+logger = new Logger();
+
 WebSocketTransport = (function(_super) {
   var _bindWebSocketEvents, _destroy, _sendFirstMessage;
 
   __extends(WebSocketTransport, _super);
 
   function WebSocketTransport(domain, accessToken, options) {
+    var defaults;
     this.domain = domain;
     this.accessToken = accessToken;
     this.options = options;
-    if (!(domain && accessToken)) {
-      throw new ReallyError('Can\'t initialize connection without passing domain and access token');
-    }
-    if (!(_.isString(domain) && _.isString(accessToken))) {
-      throw new ReallyError('Only <String> values are allowed for domain and access token');
-    }
     this.socket = null;
     this.callbacksBuffer = new CallbacksBuffer();
     this._messagesBuffer = [];
     this.pushHandler = PushHandler;
     this.initialized = false;
     this.url = "" + domain + "/v" + protocol.clientVersion + "/socket";
+    defaults = {
+      reconnectionMaxTimeout: 30e3,
+      heartbeatTimeout: 2e3,
+      heartbeatInterval: 5e3,
+      reconnect: true,
+      onDisconnect: 'buffer'
+    };
+    this.options = _.defaults(options, defaults);
   }
 
   Emitter(WebSocketTransport.prototype);
 
-  _bindWebSocketEvents = function() {
+  _bindWebSocketEvents = function(deferred) {
     this.socket.addEventListener('open', (function(_this) {
       return function() {
+        _this.attempts = 0;
+        deferred.resolve();
         _sendFirstMessage.call(_this);
         return _this.emit('opened');
       };
     })(this));
     this.socket.addEventListener('close', (function(_this) {
       return function() {
-        _this.emit('closed');
-        return _this.disconnect();
+        if (_this.options.reconnect) {
+          _this.emit('reconnecting');
+          return _this.reconnect(_this.options.reconnectionMaxTimeout);
+        } else {
+          _this.emit('closed');
+          return _this.disconnect();
+        }
       };
     })(this));
     this.socket.addEventListener('error', (function(_this) {
@@ -9778,78 +9915,94 @@ WebSocketTransport = (function(_super) {
     })(this));
   };
 
-  WebSocketTransport.prototype._startHeartbeat = function() {
-    var message, success;
-    message = protocol.heartbeatMessage();
-    success = (function(_this) {
-      return function(data) {
-        clearTimeout(_this.heartbeatTimeoutID);
-        return setTimeout(function() {
-          return _this._startHeartbeat.call(_this);
-        }, _this.options.heartbeatInterval);
-      };
-    })(this);
-    this.send(message, {
-      success: success
-    });
-    return this.heartbeatTimeoutID = setTimeout((function(_this) {
-      return function() {
-        clearTimeout(_this.heartbeatTimeoutID);
-        _this.emit('heartbeatLag');
-        return _this.disconnect();
-      };
-    })(this), this.options.heartbeatTimeout + this.options.heartbeatInterval);
-  };
-
-  WebSocketTransport.prototype.send = function(message, options) {
-    var complete, deferred, error, success, type;
+  WebSocketTransport.prototype.send = function(message, options, deferred) {
+    var complete, error, strategy, success, type, _handleDisconnected;
     if (options == null) {
       options = {};
     }
-    if (!(this.isConnected() || this.isConnecting())) {
-      throw new ReallyError('Connection to the server is not established');
+    if (deferred == null) {
+      deferred = Q.defer();
     }
-    if (!(this.initialized || message.type === 'initialization')) {
-      this._messagesBuffer.push({
-        message: message,
-        options: options
+    if (this.isConnected()) {
+      type = message.type;
+      success = function(data) {
+        if (typeof options.success === "function") {
+          options.success(data);
+        }
+        return deferred.resolve(data);
+      };
+      error = function(reason) {
+        if (typeof options.error === "function") {
+          options.error(reason);
+        }
+        return deferred.reject(reason);
+      };
+      complete = function(data) {
+        return typeof options.complete === "function" ? options.complete(data) : void 0;
+      };
+      message.data.tag = this.callbacksBuffer.add({
+        type: type,
+        success: success,
+        error: error,
+        complete: complete
       });
-      return;
+      this.socket.send(JSON.stringify(message.data));
+      return deferred.promise;
+    } else {
+      strategy = _.isFunction(this.options.onDisconnect) ? 'custom' : this.options.onDisconnect;
+      _handleDisconnected = function(strategy) {
+        var buffer, custom, e, fail, strategies;
+        if (strategy == null) {
+          strategy = 'fail';
+        }
+        fail = function() {
+          return deferred.reject(new ReallyError('Connection to the server is not established'));
+        };
+        buffer = function() {
+          return this._messagesBuffer.push({
+            message: message,
+            options: options,
+            deferred: deferred
+          });
+        };
+        custom = function() {
+          var e;
+          try {
+            return this.options.onDisconnect(this, this._messagesBuffer, ReallyError);
+          } catch (_error) {
+            e = _error;
+            throw new ReallyError('error invoking custom callback');
+          }
+        };
+        strategies = {
+          fail: fail,
+          buffer: buffer,
+          custom: custom
+        };
+        try {
+          return strategies[strategy]();
+        } catch (_error) {
+          e = _error;
+          if (e instanceof ReallyError) {
+            throw e;
+          }
+          throw new ReallyError('Strategy not found');
+        }
+      };
+      _handleDisconnected(strategy);
+      return deferred.promise;
     }
-    deferred = Q.defer();
-    type = message.type;
-    success = function(data) {
-      if (typeof options.success === "function") {
-        options.success(data);
-      }
-      return deferred.resolve(data);
-    };
-    error = function(reason) {
-      if (typeof options.error === "function") {
-        options.error(reason);
-      }
-      return deferred.reject(reason);
-    };
-    complete = function(data) {
-      return typeof options.complete === "function" ? options.complete(data) : void 0;
-    };
-    message.data.tag = this.callbacksBuffer.add({
-      type: type,
-      success: success,
-      error: error,
-      complete: complete
-    });
-    this.socket.send(JSON.stringify(message.data));
-    return deferred.promise;
   };
 
   _sendFirstMessage = function() {
     var error, msg, success;
     success = (function(_this) {
       return function(data) {
+        var heartbeat;
         _this.initialized = true;
         _.flush.call(_this);
-        _this._startHeartbeat();
+        heartbeat = new Heartbeat(_this.options.heartbeatInterval, _this.options.heartbeatTimeout);
+        heartbeat.start(_this);
         return _this.emit('initialized', data);
       };
     })(this);
@@ -9866,26 +10019,45 @@ WebSocketTransport = (function(_super) {
     });
   };
 
-  WebSocketTransport.prototype.connect = function() {
-    if (this.socket == null) {
-      this.socket = new WebSocket(this.url);
+  WebSocketTransport.prototype.connect = function(deferred) {
+    if (deferred == null) {
+      deferred = Q.defer();
     }
+    this.socket = new WebSocket(this.url);
     this.socket.addEventListener('error', _.once(function() {
       return console.log("error initializing websocket with URL: " + this.url);
     }));
-    _bindWebSocketEvents.call(this);
-    return this.socket;
+    _bindWebSocketEvents.call(this, deferred);
+    return deferred.promise;
+  };
+
+  WebSocketTransport.prototype.reconnect = function(timeout) {
+    this.attempts += 1;
+    ({
+      generateTimeout: function() {
+        var maxInterval;
+        maxInterval = (Math.pow(2, this.attemps) - 1) * 1000;
+        if (maxInterval > this.options.reconnectionMaxTimeout) {
+          maxInterval = this.options.reconnectionMaxTimeout;
+        }
+        return Math.random() * maxInterval;
+      }
+    });
+    return this.connect().timeout(timeout)["catch"](function() {
+      timeout = generateTimeout(timeout);
+      return reconnect(timeout);
+    });
   };
 
   _.flush = function() {
     return setTimeout((function(_this) {
       return function() {
-        var message, options, _i, _len, _ref, _ref1, _results;
+        var deferred, message, options, _i, _len, _ref, _ref1, _results;
         _ref = _this._messagesBuffer;
         _results = [];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          _ref1 = _ref[_i], message = _ref1.message, options = _ref1.options;
-          _results.push(_this.send(message, options));
+          _ref1 = _ref[_i], message = _ref1.message, options = _ref1.options, deferred = _ref1.deferred;
+          _results.push(_this.send(message, options, deferred));
         }
         return _results;
       };
@@ -9928,5 +10100,5 @@ module.exports = WebSocketTransport;
 
 
 
-},{"../callbacks-buffer":7,"../protocol":10,"../push-handler":11,"../really-error":12,"../transport":14,"component-emitter":2,"lodash":3,"q":4,"ws":5}]},{},[13])(13)
+},{"../callbacks-buffer":7,"../heartbeat":8,"../logger":9,"../protocol":10,"../push-handler":11,"../really-error":13,"../transport":16,"component-emitter":2,"lodash":3,"q":4,"ws":5}]},{},[15])(15)
 });
