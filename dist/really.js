@@ -2,7 +2,7 @@
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
  *
- *  Date:  Wed Dec 24 2014 12:19:46
+ *  Date:  Thu Dec 25 2014 13:54:13
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -9267,11 +9267,6 @@ module.exports = Logger;
 
 
 },{"lodash":3}],10:[function(require,module,exports){
-
-/**
- * Protocol
- * This module is responsible for generating protocol messages
- */
 var ReallyError, VERSION, authenticator, _,
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -9286,22 +9281,25 @@ VERSION = '0';
 module.exports = {
   clientVersion: VERSION,
   commands: {
-    'init': 'init',
-    'create': 'create',
-    'read': 'read',
-    'get': 'get',
-    'update': 'update',
-    'delete': 'delete',
-    'heartbeat': 'poke',
-    'subscribe': 'subscribe',
-    'unsubscribe': 'unsubscribe'
+    init: 'init',
+    create: 'create',
+    read: 'read',
+    get: 'get',
+    update: 'update',
+    "delete": 'delete',
+    heartbeat: 'poke',
+    subscribe: 'subscribe',
+    unsubscribe: 'unsubscribe'
   },
   initializationMessage: function(accessToken) {
+    if (!_.isString(accessToken)) {
+      throw new ReallyError('You should pass accessToken parameter as String');
+    }
     return {
-      'kind': 'initialization',
-      'data': {
-        'cmd': this.commands.init,
-        'accessToken': accessToken
+      kind: 'initialization',
+      data: {
+        cmd: this.commands.init,
+        accessToken: accessToken
       }
     };
   },
@@ -9333,41 +9331,41 @@ module.exports = {
     supportedOptions = {
       fields: {
         valid: _.isArray,
-        message: 'You should pass Array  for "fields" option'
+        message: 'You should pass Array for "fields" option'
       },
       query: {
         valid: function(query) {
-          return _.isObject(query) && (_.isString(query.fields) || _.isObject(query.values));
+          return _.isObject(query) && (_.isString(query.filter) || _.isObject(query.values));
         },
-        message: 'You should pass Object  for "query" option'
+        message: 'You should pass Object for "query" option'
       },
       limit: {
         valid: _.isNumber,
-        message: 'You should pass Number  for "limit" option'
+        message: 'You should pass Number for "limit" option'
       },
       skip: {
         valid: _.isNumber,
-        message: 'You should pass Number  for "skip" option'
+        message: 'You should pass Number for "skip" option'
       },
       sort: {
         valid: _.isString,
-        message: 'You should pass String  for "sort" option'
+        message: 'You should pass String for "sort" option'
       },
       token: {
         valid: _.isString,
-        message: 'You should pass String  for "token" option'
+        message: 'You should pass String for "token" option'
       },
       includeTotalCount: {
         valid: _.isBoolean,
-        message: 'You should pass Boolean  for "includeTotalCount" option'
+        message: 'You should pass Boolean for "includeTotalCount" option'
       },
       paginationToken: {
         valid: _.isString,
-        message: 'You should pass String  for "fields" option'
+        message: 'You should pass String for "paginationToken" option'
       },
       subscribe: {
         valid: _.isBoolean,
-        message: 'You should pass Boolean  for "subscribe" option'
+        message: 'You should pass Boolean for "subscribe" option'
       }
     };
     for (option in cmdOpts) {
@@ -9394,7 +9392,7 @@ module.exports = {
   },
   getMessage: function(res, fields) {
     var message;
-    if (!(_.isArray(fields || !fields))) {
+    if (!_.isArray(fields)) {
       throw new ReallyError('You should pass array or nothing for fields option');
     }
     message = {
@@ -9413,7 +9411,7 @@ module.exports = {
   },
   updateMessage: function(res, rev, ops) {
     var message, operation, supportedOperations, _i, _len, _ref;
-    if (!ops || ops.length === 0) {
+    if (!(_.isArray(ops) && ops.length > 0)) {
       throw new ReallyError('You should pass at least one operation');
     }
     supportedOperations = ['set', 'addNumber', 'push', 'addToSet', 'insertAt', 'pull', 'removeAt'];
@@ -9450,7 +9448,7 @@ module.exports = {
   },
   subscribeMessage: function(subscriptions) {
     var message, subscription, _i, _len;
-    if (!(subscriptions || _.isArray(subscriptions) || _.isObject(subscriptions))) {
+    if (!(_.isPlainObject(subscriptions) || _.isArray(subscriptions))) {
       throw new ReallyError('subscription(s) should be either Object or Array of Objects');
     }
     if (!_.isArray(subscriptions)) {
@@ -9458,8 +9456,8 @@ module.exports = {
     }
     for (_i = 0, _len = subscriptions.length; _i < _len; _i++) {
       subscription = subscriptions[_i];
-      if (!(_.isString(subscription.rev) && _.isString(subscription.res))) {
-        throw new ReallyError('You must pass valid resource and revision for subscription object');
+      if (!(_.isNumber(subscription.rev) && _.isString(subscription.res))) {
+        throw new ReallyError('You must pass string resource and number revision for subscription object');
       }
     }
     return message = {
@@ -9472,7 +9470,7 @@ module.exports = {
   },
   unsubscribeMessage: function(subscriptions) {
     var message, subscription, _i, _len;
-    if (!subscriptions || !_.isArray(subscriptions) || !_.isObject(subscriptions)) {
+    if (!(_.isPlainObject(subscriptions) || _.isArray(subscriptions))) {
       throw new ReallyError('subscription(s) should be either Object or Array of Objects');
     }
     if (!_.isArray(subscriptions)) {
@@ -9480,8 +9478,8 @@ module.exports = {
     }
     for (_i = 0, _len = subscriptions.length; _i < _len; _i++) {
       subscription = subscriptions[_i];
-      if (!(_.isString(subscription.rev) && _.isString(subscriptions.res))) {
-        throw new ReallyError('You must pass valid resource and revision for subscription object');
+      if (!(_.isNumber(subscription.rev) && _.isString(subscription.res))) {
+        throw new ReallyError('You must pass string resource and number revision for subscription object');
       }
     }
     return message = {
@@ -9550,6 +9548,8 @@ ReallyError = require('./really-error');
 
 Emitter = require('component-emitter');
 
+_ = require('lodash');
+
 Q = require('q');
 
 ReallyCollection = (function() {
@@ -9558,18 +9558,18 @@ ReallyCollection = (function() {
     Emitter(this);
   }
 
-  ReallyCollection.prototype.create = function(res, options) {
+  ReallyCollection.prototype.create = function(r, options) {
     var body, deferred, e, message, onComplete, onError, onSuccess;
     if (options == null) {
       options = {};
     }
-    if (!res) {
+    if (!_.isString(r)) {
       throw new ReallyError('Can not be initialized without resource');
     }
     deferred = new Q.defer();
     onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete, body = options.body;
     try {
-      message = protocol.createMessage(res, body);
+      message = protocol.createMessage(r, body);
     } catch (_error) {
       e = _error;
       setTimeout(function() {
@@ -9584,19 +9584,19 @@ ReallyCollection = (function() {
     });
   };
 
-  ReallyCollection.prototype.read = function(res, options) {
+  ReallyCollection.prototype.read = function(r, options) {
     var deferred, e, message, onComplete, onError, onSuccess, protocolOpttions;
     if (options == null) {
       options = {};
     }
-    if (!res) {
+    if (!_.isString(r)) {
       throw new ReallyError('Can not be initialized without resource');
     }
     deferred = new Q.defer();
     onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
     protocolOpttions = _.omit(options, ['onSuccess', 'onError', 'onComplete']);
     try {
-      message = protocol.readMessage(res, protocolOpttions);
+      message = protocol.readMessage(r, protocolOpttions);
     } catch (_error) {
       e = _error;
       setTimeout(function() {
@@ -9611,8 +9611,8 @@ ReallyCollection = (function() {
     });
   };
 
-  ReallyCollection.prototype.onCreate = function(res, callback) {
-    return this.on("" + res + ":created", function(data) {
+  ReallyCollection.prototype.onCreate = function(r, callback) {
+    return this.on("" + r + ":created", function(data) {
       return callback(data);
     });
   };
