@@ -64,7 +64,7 @@ class WebSocketTransport extends Transport
 
   send: (message, options = {}, deferred = Q.defer()) ->
     if @isConnected()
-      {type} = message
+      {kind} = message
      
       success = (data) ->
         options.success? data
@@ -77,7 +77,7 @@ class WebSocketTransport extends Transport
       complete = (data) ->
         options.complete? data
       
-      message.data.tag = @callbacksBuffer.add {type, success, error, complete}
+      message.data.tag = @callbacksBuffer.add {kind, success, error, complete}
       @socket.send JSON.stringify message.data
       
       return deferred.promise

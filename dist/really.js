@@ -2,7 +2,7 @@
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
  *
- *  Date:  Thu Dec 18 2014 16:42:45
+ *  Date:  Tue Dec 23 2014 12:14:43
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -9050,9 +9050,13 @@ module.exports = {
  * Callbacks Buffer
  *
  */
-var CallbacksBuffer, protocol;
+var CallbacksBuffer, ReallyError, protocol, _;
 
 protocol = require('./protocol');
+
+ReallyError = require('./really-error');
+
+_ = require('lodash');
 
 CallbacksBuffer = (function() {
   var newTag;
@@ -9064,36 +9068,42 @@ CallbacksBuffer = (function() {
 
   CallbacksBuffer.prototype.handle = function(message) {
     var e, tag;
+    if (!(message.tag in this._callbacks)) {
+      throw new ReallyError("A message with this tag: " + message.tag + " doesn't exist");
+    }
     tag = message.tag;
     if (protocol.isErrorMessage(message)) {
       try {
         this._callbacks[tag]['error'].call(null, message);
       } catch (_error) {
         e = _error;
-        console.log('Error happened when trying to execute your error callback', e.stack);
+        throw new ReallyError('Error happened when trying to execute your error callback');
       }
     } else {
       try {
         this._callbacks[tag]['success'].call(null, message);
       } catch (_error) {
         e = _error;
-        console.log('Error happened when trying to execute your success callback', e.stack);
+        throw new ReallyError('Error happened when trying to execute your success callback');
       }
     }
     try {
       this._callbacks[tag]['complete'].call(null, message);
     } catch (_error) {
       e = _error;
-      console.log('Error happened when trying to execute your complete callback', e.stack);
+      throw new ReallyError('Error happened when trying to execute your complete callback');
     }
     return delete this._callbacks[tag];
   };
 
   CallbacksBuffer.prototype.add = function(args) {
-    var complete, error, success, tag, type;
-    type = args.type, success = args.success, error = args.error, complete = args.complete;
-    if (type == null) {
-      type = 'default';
+    var complete, error, kind, success, tag;
+    if (args == null) {
+      args = {};
+    }
+    kind = args.kind, success = args.success, error = args.error, complete = args.complete;
+    if (kind == null) {
+      kind = 'default';
     }
     if (success == null) {
       success = _.noop;
@@ -9106,7 +9116,7 @@ CallbacksBuffer = (function() {
     }
     tag = newTag.call(this);
     this._callbacks[tag] = {
-      type: type,
+      kind: kind,
       success: success,
       error: error,
       complete: complete
@@ -9126,7 +9136,7 @@ module.exports = CallbacksBuffer;
 
 
 
-},{"./protocol":10}],8:[function(require,module,exports){
+},{"./protocol":10,"./really-error":13,"lodash":3}],8:[function(require,module,exports){
 var Heartbeat, Logger, Q, logger, protocol;
 
 protocol = require('./protocol');
@@ -9288,7 +9298,7 @@ module.exports = {
   },
   initializationMessage: function(accessToken) {
     return {
-      'type': 'initialization',
+      'kind': 'initialization',
       'data': {
         'cmd': this.commands.init,
         'accessToken': accessToken
@@ -9304,7 +9314,7 @@ module.exports = {
       throw new ReallyError('You should pass a body parameter as Object');
     }
     message = {
-      type: 'create',
+      kind: 'create',
       data: {
         cmd: this.commands.create,
         r: res
@@ -9371,7 +9381,7 @@ module.exports = {
       }
     }
     message = {
-      type: 'read',
+      kind: 'read',
       data: {
         cmd: this.commands.read,
         r: res
@@ -9388,7 +9398,7 @@ module.exports = {
       throw new ReallyError('You should pass array or nothing for fields option');
     }
     message = {
-      type: 'get',
+      kind: 'get',
       data: {
         cmd: this.commands.get,
         r: res
@@ -9414,7 +9424,7 @@ module.exports = {
       }
     }
     message = {
-      type: 'update',
+      kind: 'update',
       data: {
         cmd: this.commands.update,
         rev: rev,
@@ -9431,7 +9441,7 @@ module.exports = {
       throw new ReallyError('You should pass a resource parameter as String');
     }
     return {
-      type: 'delete',
+      kind: 'delete',
       data: {
         cmd: this.commands["delete"],
         r: res
@@ -9453,7 +9463,7 @@ module.exports = {
       }
     }
     return message = {
-      type: 'subscribe',
+      kind: 'subscribe',
       data: {
         cmd: this.commands.subscribe,
         subscriptions: subscriptions
@@ -9475,7 +9485,7 @@ module.exports = {
       }
     }
     return message = {
-      type: 'unsubscribe',
+      kind: 'unsubscribe',
       data: {
         cmd: this.commands.unsubscribe,
         subscriptions: subscriptions
@@ -9486,7 +9496,7 @@ module.exports = {
     var time;
     time = Date.now();
     return {
-      type: 'poke',
+      kind: 'poke',
       data: {
         cmd: this.commands.heartbeat,
         timestamp: time
@@ -9615,7 +9625,9 @@ ReallyError = (function(_super) {
 
   function ReallyError(message) {
     this.message = message != null ? message : 'Unknown Error';
-    Error.captureStackTrace(this, ReallyError);
+    if (typeof Error.captureStackTrace === "function") {
+      Error.captureStackTrace(this, ReallyError);
+    }
     this.name = 'ReallyError';
   }
 
@@ -9916,7 +9928,7 @@ WebSocketTransport = (function(_super) {
   };
 
   WebSocketTransport.prototype.send = function(message, options, deferred) {
-    var complete, error, strategy, success, type, _handleDisconnected;
+    var complete, error, kind, strategy, success, _handleDisconnected;
     if (options == null) {
       options = {};
     }
@@ -9924,7 +9936,7 @@ WebSocketTransport = (function(_super) {
       deferred = Q.defer();
     }
     if (this.isConnected()) {
-      type = message.type;
+      kind = message.kind;
       success = function(data) {
         if (typeof options.success === "function") {
           options.success(data);
@@ -9941,7 +9953,7 @@ WebSocketTransport = (function(_super) {
         return typeof options.complete === "function" ? options.complete(data) : void 0;
       };
       message.data.tag = this.callbacksBuffer.add({
-        type: type,
+        kind: kind,
         success: success,
         error: error,
         complete: complete
