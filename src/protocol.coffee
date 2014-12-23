@@ -23,7 +23,7 @@ module.exports =
     'unsubscribe': 'unsubscribe'
 
   initializationMessage: (accessToken) ->
-    'type': 'initialization'
+    'kind': 'initialization'
     'data':
       'cmd': @commands.init
       'accessToken': accessToken
@@ -36,7 +36,7 @@ module.exports =
       throw new ReallyError('You should pass a body parameter as Object')
     
     message =
-      type: 'create'
+      kind: 'create'
       data:
         cmd: @commands.create
         r: res
@@ -88,7 +88,7 @@ module.exports =
 
     # compose the message
     message =
-      type: 'read'
+      kind: 'read'
       data:
         cmd: @commands.read
         r: res
@@ -102,7 +102,7 @@ module.exports =
       throw new ReallyError('You should pass array or nothing for fields option')
 
     message =
-      type: 'get'
+      kind: 'get'
       data:
         cmd: @commands.get
         r: res
@@ -121,7 +121,7 @@ module.exports =
         throw new ReallyError("\"#{operation.op}\" operation you passed is not supported")
 
     message =
-      type: 'update'
+      kind: 'update'
       data:
         cmd: @commands.update
         rev: rev
@@ -133,7 +133,7 @@ module.exports =
   deleteMessage: (res) ->
     throw new ReallyError('You should pass a resource parameter as String') unless _.isString res
     
-    type: 'delete'
+    kind: 'delete'
     data:
       cmd: @commands.delete
       r: res
@@ -148,7 +148,7 @@ module.exports =
         throw new ReallyError('You must pass valid resource and revision for subscription object')
     
     message =
-      type: 'subscribe'
+      kind: 'subscribe'
       data:
         cmd: @commands.subscribe
         subscriptions: subscriptions
@@ -164,7 +164,7 @@ module.exports =
         throw new ReallyError('You must pass valid resource and revision for subscription object')
     
     message =
-      type: 'unsubscribe'
+      kind: 'unsubscribe'
       data:
         cmd: @commands.unsubscribe
         subscriptions: subscriptions
@@ -172,7 +172,7 @@ module.exports =
   heartbeatMessage: () ->
     time = Date.now()
 
-    type: 'poke'
+    kind: 'poke'
     data:
       cmd: @commands.heartbeat
       timestamp: time
