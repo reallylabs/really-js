@@ -5,7 +5,7 @@ Q = require 'q'
 class ReallyObject
   constructor: (@channel) -> return this
   
-  get: (res, options) ->
+  get: (res, options = {}) ->
     throw new ReallyError('Can not be initialized without resource') unless res
     deferred = new Q.defer()
     {fields, onSuccess, onError, onComplete} = options
@@ -20,7 +20,7 @@ class ReallyObject
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
-  update: (res, rev, options) ->
+  update: (res, rev, options = {}) ->
     throw new ReallyError('Can not be initialized without resource') unless res
     deferred = new Q.defer()
     
@@ -31,7 +31,7 @@ class ReallyObject
     {ops, onSuccess, onError, onComplete} = options
 
     try
-      message = protocol.updateMessage(res, ops)
+      message = protocol.updateMessage(res, rev, ops)
     catch e
       setTimeout( ->
         deferred.reject e
@@ -40,7 +40,7 @@ class ReallyObject
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
-  delete: (res, options) ->
+  delete: (res, options = {}) ->
     throw new ReallyError('Can not be initialized without resource') unless res
     {onSuccess, onError, onComplete} = options
     message = protocol.deleteMessage(res)

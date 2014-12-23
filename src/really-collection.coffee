@@ -6,13 +6,13 @@ Q = require 'q'
 class ReallyCollection
   constructor: (@channel) -> return this
 
-  create: (res, options) ->
+  create: (res, options = {}) ->
     throw new ReallyError('Can not be initialized without resource') unless res
     deferred = new Q.defer()
     {onSuccess, onError, onComplete, body} = options
 
     try
-      message = protocol.createMessage(@res, body)
+      message = protocol.createMessage(res, body)
     catch e
       setTimeout( ->
         deferred.reject e
@@ -22,7 +22,7 @@ class ReallyCollection
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
-  read: (res, options) ->
+  read: (res, options = {}) ->
     throw new ReallyError('Can not be initialized without resource') unless res
     deferred = new Q.defer()
 
@@ -30,7 +30,7 @@ class ReallyCollection
     protocolOpttions = _.omit options, ['onSuccess', 'onError', 'onComplete']
 
     try
-      message = protocol.readMessage(@res, protocolOpttions)
+      message = protocol.readMessage(res, protocolOpttions)
     catch e
       setTimeout( ->
         deferred.reject e
