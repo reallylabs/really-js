@@ -12,7 +12,7 @@ Logger = require '../logger'
 logger = new Logger()
 # TODO: if connection get closed stop the heartbeat
 class WebSocketTransport extends Transport
-  constructor: (@domain, @accessToken, @options) ->
+  constructor: (@domain, @accessToken, @options = {}) ->
     @socket = null
     @callbacksBuffer = new CallbacksBuffer()
     @_messagesBuffer = []
@@ -27,8 +27,7 @@ class WebSocketTransport extends Transport
       heartbeatInterval: 5e3
       reconnect: true
       onDisconnect: 'buffer'
-    
-    @options = _.defaults options, defaults
+    @options = _.defaults @options, defaults
   
   # Mixin Emitter
   Emitter(WebSocketTransport.prototype)
@@ -84,14 +83,14 @@ class WebSocketTransport extends Transport
     
     else
       strategy = if _.isFunction @options.onDisconnect then 'custom' else @options.onDisconnect
-      _handleDisconnected = (strategy = 'fail') ->
+      _handleDisconnected = (strategy = 'fail') =>
         fail = () ->
           deferred.reject new ReallyError('Connection to the server is not established')
         
-        buffer = () ->
+        buffer = () =>
           @_messagesBuffer.push {message, options, deferred}
 
-        custom = () ->
+        custom = () =>
           try
             @options.onDisconnect(this, @_messagesBuffer, ReallyError)
           catch e

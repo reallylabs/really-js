@@ -23,6 +23,7 @@ class Really
       @collection = store[domain]['collection']
     else
       transport = new Transport(domain, accessToken, options)
+      transport.connect()
       store[domain] = {}
       @object = store[domain]['object'] = new ReallyObject(transport)
       @collection = store[domain]['collection'] = new ReallyCollection(transport)

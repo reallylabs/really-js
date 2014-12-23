@@ -2,7 +2,7 @@
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
  *
- *  Date:  Tue Dec 23 2014 12:14:43
+ *  Date:  Tue Dec 23 2014 20:27:20
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -9550,13 +9550,16 @@ ReallyCollection = (function() {
 
   ReallyCollection.prototype.create = function(res, options) {
     var body, deferred, e, message, onComplete, onError, onSuccess;
+    if (options == null) {
+      options = {};
+    }
     if (!res) {
       throw new ReallyError('Can not be initialized without resource');
     }
     deferred = new Q.defer();
     onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete, body = options.body;
     try {
-      message = protocol.createMessage(this.res, body);
+      message = protocol.createMessage(res, body);
     } catch (_error) {
       e = _error;
       setTimeout(function() {
@@ -9573,6 +9576,9 @@ ReallyCollection = (function() {
 
   ReallyCollection.prototype.read = function(res, options) {
     var deferred, e, message, onComplete, onError, onSuccess, protocolOpttions;
+    if (options == null) {
+      options = {};
+    }
     if (!res) {
       throw new ReallyError('Can not be initialized without resource');
     }
@@ -9580,7 +9586,7 @@ ReallyCollection = (function() {
     onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
     protocolOpttions = _.omit(options, ['onSuccess', 'onError', 'onComplete']);
     try {
-      message = protocol.readMessage(this.res, protocolOpttions);
+      message = protocol.readMessage(res, protocolOpttions);
     } catch (_error) {
       e = _error;
       setTimeout(function() {
@@ -9656,6 +9662,9 @@ ReallyObject = (function() {
 
   ReallyObject.prototype.get = function(res, options) {
     var deferred, e, fields, message, onComplete, onError, onSuccess;
+    if (options == null) {
+      options = {};
+    }
     if (!res) {
       throw new ReallyError('Can not be initialized without resource');
     }
@@ -9679,6 +9688,9 @@ ReallyObject = (function() {
 
   ReallyObject.prototype.update = function(res, rev, options) {
     var deferred, e, message, onComplete, onError, onSuccess, ops;
+    if (options == null) {
+      options = {};
+    }
     if (!res) {
       throw new ReallyError('Can not be initialized without resource');
     }
@@ -9689,7 +9701,7 @@ ReallyObject = (function() {
     }
     ops = options.ops, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
     try {
-      message = protocol.updateMessage(res, ops);
+      message = protocol.updateMessage(res, rev, ops);
     } catch (_error) {
       e = _error;
       setTimeout(function() {
@@ -9706,6 +9718,9 @@ ReallyObject = (function() {
 
   ReallyObject.prototype["delete"] = function(res, options) {
     var message, onComplete, onError, onSuccess;
+    if (options == null) {
+      options = {};
+    }
     if (!res) {
       throw new ReallyError('Can not be initialized without resource');
     }
@@ -9772,6 +9787,7 @@ Really = (function() {
       this.collection = store[domain]['collection'];
     } else {
       transport = new Transport(domain, accessToken, options);
+      transport.connect();
       store[domain] = {};
       this.object = store[domain]['object'] = new ReallyObject(transport);
       this.collection = store[domain]['collection'] = new ReallyCollection(transport);
@@ -9869,7 +9885,7 @@ WebSocketTransport = (function(_super) {
     var defaults;
     this.domain = domain;
     this.accessToken = accessToken;
-    this.options = options;
+    this.options = options != null ? options : {};
     this.socket = null;
     this.callbacksBuffer = new CallbacksBuffer();
     this._messagesBuffer = [];
@@ -9883,7 +9899,7 @@ WebSocketTransport = (function(_super) {
       reconnect: true,
       onDisconnect: 'buffer'
     };
-    this.options = _.defaults(options, defaults);
+    this.options = _.defaults(this.options, defaults);
   }
 
   Emitter(WebSocketTransport.prototype);
@@ -9962,45 +9978,47 @@ WebSocketTransport = (function(_super) {
       return deferred.promise;
     } else {
       strategy = _.isFunction(this.options.onDisconnect) ? 'custom' : this.options.onDisconnect;
-      _handleDisconnected = function(strategy) {
-        var buffer, custom, e, fail, strategies;
-        if (strategy == null) {
-          strategy = 'fail';
-        }
-        fail = function() {
-          return deferred.reject(new ReallyError('Connection to the server is not established'));
-        };
-        buffer = function() {
-          return this._messagesBuffer.push({
-            message: message,
-            options: options,
-            deferred: deferred
-          });
-        };
-        custom = function() {
-          var e;
+      _handleDisconnected = (function(_this) {
+        return function(strategy) {
+          var buffer, custom, e, fail, strategies;
+          if (strategy == null) {
+            strategy = 'fail';
+          }
+          fail = function() {
+            return deferred.reject(new ReallyError('Connection to the server is not established'));
+          };
+          buffer = function() {
+            return _this._messagesBuffer.push({
+              message: message,
+              options: options,
+              deferred: deferred
+            });
+          };
+          custom = function() {
+            var e;
+            try {
+              return _this.options.onDisconnect(_this, _this._messagesBuffer, ReallyError);
+            } catch (_error) {
+              e = _error;
+              throw new ReallyError('error invoking custom callback');
+            }
+          };
+          strategies = {
+            fail: fail,
+            buffer: buffer,
+            custom: custom
+          };
           try {
-            return this.options.onDisconnect(this, this._messagesBuffer, ReallyError);
+            return strategies[strategy]();
           } catch (_error) {
             e = _error;
-            throw new ReallyError('error invoking custom callback');
+            if (e instanceof ReallyError) {
+              throw e;
+            }
+            throw new ReallyError('Strategy not found');
           }
         };
-        strategies = {
-          fail: fail,
-          buffer: buffer,
-          custom: custom
-        };
-        try {
-          return strategies[strategy]();
-        } catch (_error) {
-          e = _error;
-          if (e instanceof ReallyError) {
-            throw e;
-          }
-          throw new ReallyError('Strategy not found');
-        }
-      };
+      })(this);
       _handleDisconnected(strategy);
       return deferred.promise;
     }
