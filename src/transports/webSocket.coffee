@@ -53,14 +53,9 @@ class WebSocketTransport extends Transport
 
     @socket.addEventListener 'message', (e) =>
       data = JSON.parse e.data
-
-      if _.has data, 'tag'
-        @callbacksBuffer.handle data
-      else
-        @pushHandler.handle data
-
+      @callbacksBuffer.handle data if _.has data, 'tag'
       @emit 'message', data
-
+  
   send: (message, options = {}, deferred = Q.defer()) ->
     if @isConnected()
       {kind} = message

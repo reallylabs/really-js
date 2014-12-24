@@ -1,17 +1,19 @@
-protocol = require './protocol'
+protocol    = require './protocol'
 ReallyError = require './really-error'
-Q = require 'q'
+Emitter     = require 'component-emitter'
+_           = require 'lodash'
+Q           = require 'q'
 
 class ReallyObject
-  constructor: (@channel) -> return this
+  constructor: (@channel) -> Emitter this
   
-  get: (res, options = {}) ->
-    throw new ReallyError('Can not be initialized without resource') unless res
+  get: (r, options) ->
+    throw new ReallyError('Can not be initialized without resource') unless _.isString r
     deferred = new Q.defer()
     {fields, onSuccess, onError, onComplete} = options
     
     try
-      message = protocol.getMessage(res, fields)
+      message = protocol.getMessage(r, fields)
     catch e
       setTimeout( ->
         deferred.reject e
@@ -20,8 +22,8 @@ class ReallyObject
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
-  update: (res, rev, options = {}) ->
-    throw new ReallyError('Can not be initialized without resource') unless res
+  update: (r, rev, options) ->
+    throw new ReallyError('Can not be initialized without resource') unless _.isString r
     deferred = new Q.defer()
     
     unless options
@@ -31,7 +33,7 @@ class ReallyObject
     {ops, onSuccess, onError, onComplete} = options
 
     try
-      message = protocol.updateMessage(res, rev, ops)
+      message = protocol.updateMessage(r, ops)
     catch e
       setTimeout( ->
         deferred.reject e
@@ -40,16 +42,14 @@ class ReallyObject
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
-  delete: (res, options = {}) ->
-    throw new ReallyError('Can not be initialized without resource') unless res
+  delete: (r, options) ->
+    throw new ReallyError('Can not be initialized without resource') unless _.isString r
     {onSuccess, onError, onComplete} = options
-    message = protocol.deleteMessage(res)
+    message = protocol.deleteMessage(r)
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
 
-  onUpdate: (res, callback) ->
-    @on "#{res}:update", (data) -> callback data
+  onUpdate: (r, callback) -> @on "#{r}:updated", (data) -> callback data
 
-  onDelete: (res, callback) ->
-    @on "#{res}:delete", (data) -> callback data
+  onDelete: (r, callback) -> @on "#{r}:deleted", (data) -> callback data
 
 module.exports = ReallyObject
