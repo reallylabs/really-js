@@ -27,6 +27,10 @@ class Really
       store[domain] = {}
       @object = store[domain]['object'] = new ReallyObject(transport)
       @collection = store[domain]['collection'] = new ReallyCollection(transport)
+      
+      transport.on 'message', (message) ->
+        data = JSON.parse message
+        pushHandler.handle(this, data) unless _.has data, 'tag'
 
     return this
 

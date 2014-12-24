@@ -1,18 +1,10 @@
-module.exports =
-  handle: (message) ->
-    # events on object and collection
-    if message.r
-      Really.emit message.r, message
-      Really.emit "#{message.r}:#{message.cmd}", message
-      return
-    # General events
-    switch message.evt
-      when 'kicked'
-        console.log 'kicked'
-      when 'revoked'
-        console.log 'revoked'
-      else
-        console.log 'unknown event'
+ReallyError = require './really-error'
 
-      
-    
+module.exports =
+  handle: (really, message = {}) ->
+    {r, evt} = message
+    switch evt
+      when 'updated', 'deleted' then really.object.emit "#{r}:#{evt}", message
+      when 'created' then really.collection.emit "#{r}:#{evt}", message
+      when 'kicked', 'revoked' then really.emit evt, message
+      else throw new ReallyError("Unknown event: #{evt}")

@@ -2,7 +2,7 @@
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
  *
- *  Date:  Tue Dec 23 2014 20:27:20
+ *  Date:  Wed Dec 24 2014 12:19:46
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -9511,28 +9511,36 @@ module.exports = {
 
 
 },{"./authenticator":6,"./really-error":13,"lodash":3}],11:[function(require,module,exports){
+var ReallyError;
+
+ReallyError = require('./really-error');
+
 module.exports = {
-  handle: function(message) {
-    if (message.r) {
-      Really.emit(message.r, message);
-      Really.emit("" + message.r + ":" + message.cmd, message);
-      return;
+  handle: function(really, message) {
+    var evt, r;
+    if (message == null) {
+      message = {};
     }
-    switch (message.evt) {
+    r = message.r, evt = message.evt;
+    switch (evt) {
+      case 'updated':
+      case 'deleted':
+        return really.object.emit("" + r + ":" + evt, message);
+      case 'created':
+        return really.collection.emit("" + r + ":" + evt, message);
       case 'kicked':
-        return console.log('kicked');
       case 'revoked':
-        return console.log('revoked');
+        return really.emit(evt, message);
       default:
-        return console.log('unknown event');
+        throw new ReallyError("Unknown event: " + evt);
     }
   }
 };
 
 
 
-},{}],12:[function(require,module,exports){
-var Q, ReallyCollection, ReallyError, protocol, _;
+},{"./really-error":13}],12:[function(require,module,exports){
+var Emitter, Q, ReallyCollection, ReallyError, protocol, _;
 
 _ = require('lodash');
 
@@ -9540,12 +9548,14 @@ protocol = require('./protocol');
 
 ReallyError = require('./really-error');
 
+Emitter = require('component-emitter');
+
 Q = require('q');
 
 ReallyCollection = (function() {
   function ReallyCollection(channel) {
     this.channel = channel;
-    return this;
+    Emitter(this);
   }
 
   ReallyCollection.prototype.create = function(res, options) {
@@ -9602,7 +9612,7 @@ ReallyCollection = (function() {
   };
 
   ReallyCollection.prototype.onCreate = function(res, callback) {
-    return this.on("" + res + ":create", function(data) {
+    return this.on("" + res + ":created", function(data) {
       return callback(data);
     });
   };
@@ -9615,7 +9625,7 @@ module.exports = ReallyCollection;
 
 
 
-},{"./protocol":10,"./really-error":13,"lodash":3,"q":4}],13:[function(require,module,exports){
+},{"./protocol":10,"./really-error":13,"component-emitter":2,"lodash":3,"q":4}],13:[function(require,module,exports){
 
 /**
  * ReallyError
@@ -9646,32 +9656,33 @@ module.exports = ReallyError;
 
 
 },{}],14:[function(require,module,exports){
-var Q, ReallyError, ReallyObject, protocol;
+var Emitter, Q, ReallyError, ReallyObject, protocol, _;
 
 protocol = require('./protocol');
 
 ReallyError = require('./really-error');
+
+Emitter = require('component-emitter');
+
+_ = require('lodash');
 
 Q = require('q');
 
 ReallyObject = (function() {
   function ReallyObject(channel) {
     this.channel = channel;
-    return this;
+    Emitter(this);
   }
 
-  ReallyObject.prototype.get = function(res, options) {
+  ReallyObject.prototype.get = function(r, options) {
     var deferred, e, fields, message, onComplete, onError, onSuccess;
-    if (options == null) {
-      options = {};
-    }
-    if (!res) {
+    if (!_.isString(r)) {
       throw new ReallyError('Can not be initialized without resource');
     }
     deferred = new Q.defer();
     fields = options.fields, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
     try {
-      message = protocol.getMessage(res, fields);
+      message = protocol.getMessage(r, fields);
     } catch (_error) {
       e = _error;
       setTimeout(function() {
@@ -9686,12 +9697,9 @@ ReallyObject = (function() {
     });
   };
 
-  ReallyObject.prototype.update = function(res, rev, options) {
+  ReallyObject.prototype.update = function(r, rev, options) {
     var deferred, e, message, onComplete, onError, onSuccess, ops;
-    if (options == null) {
-      options = {};
-    }
-    if (!res) {
+    if (!_.isString(r)) {
       throw new ReallyError('Can not be initialized without resource');
     }
     deferred = new Q.defer();
@@ -9701,7 +9709,7 @@ ReallyObject = (function() {
     }
     ops = options.ops, onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
     try {
-      message = protocol.updateMessage(res, rev, ops);
+      message = protocol.updateMessage(r, ops);
     } catch (_error) {
       e = _error;
       setTimeout(function() {
@@ -9716,16 +9724,13 @@ ReallyObject = (function() {
     });
   };
 
-  ReallyObject.prototype["delete"] = function(res, options) {
+  ReallyObject.prototype["delete"] = function(r, options) {
     var message, onComplete, onError, onSuccess;
-    if (options == null) {
-      options = {};
-    }
-    if (!res) {
+    if (!_.isString(r)) {
       throw new ReallyError('Can not be initialized without resource');
     }
     onSuccess = options.onSuccess, onError = options.onError, onComplete = options.onComplete;
-    message = protocol.deleteMessage(res);
+    message = protocol.deleteMessage(r);
     return this.channel.send(message, {
       success: onSuccess,
       error: onError,
@@ -9733,14 +9738,14 @@ ReallyObject = (function() {
     });
   };
 
-  ReallyObject.prototype.onUpdate = function(res, callback) {
-    return this.on("" + res + ":update", function(data) {
+  ReallyObject.prototype.onUpdate = function(r, callback) {
+    return this.on("" + r + ":updated", function(data) {
       return callback(data);
     });
   };
 
-  ReallyObject.prototype.onDelete = function(res, callback) {
-    return this.on("" + res + ":delete", function(data) {
+  ReallyObject.prototype.onDelete = function(r, callback) {
+    return this.on("" + r + ":deleted", function(data) {
       return callback(data);
     });
   };
@@ -9753,7 +9758,7 @@ module.exports = ReallyObject;
 
 
 
-},{"./protocol":10,"./really-error":13,"q":4}],15:[function(require,module,exports){
+},{"./protocol":10,"./really-error":13,"component-emitter":2,"lodash":3,"q":4}],15:[function(require,module,exports){
 
 /**
  * really
@@ -9791,6 +9796,13 @@ Really = (function() {
       store[domain] = {};
       this.object = store[domain]['object'] = new ReallyObject(transport);
       this.collection = store[domain]['collection'] = new ReallyCollection(transport);
+      transport.on('message', function(message) {
+        var data;
+        data = JSON.parse(message);
+        if (!_.has(data, 'tag')) {
+          return pushHandler.handle(this, data);
+        }
+      });
     }
     return this;
   }
@@ -9935,8 +9947,6 @@ WebSocketTransport = (function(_super) {
         data = JSON.parse(e.data);
         if (_.has(data, 'tag')) {
           _this.callbacksBuffer.handle(data);
-        } else {
-          _this.pushHandler.handle(data);
         }
         return _this.emit('message', data);
       };
