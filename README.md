@@ -9,16 +9,10 @@ Install node dependencies
 npm install
 ```
 
-To start the server
+To start development
 
 ```
-node tests/support/server/index.js
-```
-
-To start karma
-
-```
-karma start
+gulp tdd
 ```
 
 #### Code Styleguide
