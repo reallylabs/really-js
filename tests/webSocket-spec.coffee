@@ -182,8 +182,8 @@ describe 'webSocket', ->
 
       it 'should send first message when connection open', (done) ->
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
-        spyOn(ws, 'send')
-        spyOn(protocol, 'initializationMessage')
+        spyOn(ws, 'send').and.callThrough()
+        spyOn(protocol, 'initializationMessage').and.callThrough()
         ws.connect()
 
         ws.socket.addEventListener 'open', () ->
@@ -195,7 +195,7 @@ describe 'webSocket', ->
       it 'should fire "opened" event when connection open', (done) ->
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
         ws.connect()
-        spyOn(ws, 'emit')
+        spyOn(ws, 'emit').and.callThrough()
         ws.socket.addEventListener 'open', () ->
           expect(ws.emit).toHaveBeenCalledWith 'opened'
           ws.disconnect()
@@ -205,7 +205,7 @@ describe 'webSocket', ->
       it 'should fire "error" event', (done) ->
         ws = new WebSocketTransport('wss://WRONG_ID.really.com', 'ibj88w5ake', options)
         ws.connect()
-        spyOn(ws, 'emit')
+        spyOn(ws, 'emit').and.callThrough()
         ws.socket.addEventListener 'error', () ->
           expect(ws.emit).toHaveBeenCalledWith 'error'
           ws.disconnect()
@@ -215,7 +215,7 @@ describe 'webSocket', ->
       it 'should fire "message" event', (done) ->
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
         ws.connect()
-        spyOn(ws, 'emit')
+        spyOn(ws, 'emit').and.callThrough()
         ws.socket.addEventListener 'message', (e) ->
           data = JSON.parse e.data
           expect(ws.emit).toHaveBeenCalledWith 'message', data
@@ -228,7 +228,7 @@ describe 'webSocket', ->
         ws.socket.addEventListener 'open', () ->
           message = protocol.createMessage('/users')
           ws.send(message, {})
-        spyOn(ws.callbacksBuffer, 'handle')
+        spyOn(ws.callbacksBuffer, 'handle').and.callThrough()
         ws.socket.addEventListener 'message', (e) ->
           expect(ws.callbacksBuffer.handle).toHaveBeenCalledWith JSON.parse e.data
           ws.disconnect()
@@ -238,7 +238,7 @@ describe 'webSocket', ->
       it 'should fire "reconnecting" event when reconnect options is true', (done) ->
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
         ws.connect()
-        spyOn(ws, 'emit')
+        spyOn(ws, 'emit').and.callThrough()
         ws.socket.addEventListener 'close', () ->
           expect(ws.emit).toHaveBeenCalledWith 'reconnecting'
           ws.disconnect()
@@ -248,7 +248,7 @@ describe 'webSocket', ->
       it 'should reconnect when reconnect option is true', (done) ->
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
         ws.connect()
-        spyOn(ws, 'reconnect')
+        spyOn(ws, 'reconnect').and.callThrough()
         ws.socket.addEventListener 'close', () ->
           expect(ws.reconnect).toHaveBeenCalled()
           ws.disconnect()
@@ -260,7 +260,7 @@ describe 'webSocket', ->
           reconnect: false
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', newOptions)
         ws.connect()
-        spyOn(ws, 'emit')
+        spyOn(ws, 'emit').and.callThrough()
         ws.socket.addEventListener 'close', () ->
           expect(ws.emit).toHaveBeenCalledWith 'closed'
           ws.disconnect()
@@ -272,7 +272,7 @@ describe 'webSocket', ->
           reconnect: false
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', newOptions)
         ws.connect()
-        spyOn(ws, 'disconnect')
+        spyOn(ws, 'disconnect').and.callThrough()
         ws.socket.addEventListener 'close', () ->
           expect(ws.disconnect).toHaveBeenCalled()
           ws.disconnect()
@@ -285,7 +285,7 @@ describe 'webSocket', ->
       it 'should send message with tag', (done) ->
         ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
         ws.connect()
-        spyOn(ws.socket, 'send')
+        spyOn(ws.socket, 'send').and.callThrough()
         ws.socket.addEventListener 'open', () ->
 
           ws.send(protocol.createMessage('/users'), {})
@@ -304,7 +304,7 @@ describe 'webSocket', ->
         complete = (data) -> 'complete'
 
         ws.socket.addEventListener 'open', () ->
-          spyOn(ws.callbacksBuffer, 'add')
+          spyOn(ws.callbacksBuffer, 'add').and.callThrough()
           ws.send(message, {success, error, complete})
           expect(ws.callbacksBuffer.add).toHaveBeenCalled()
           ws.disconnect()
@@ -316,7 +316,7 @@ describe 'webSocket', ->
         message = protocol.createMessage('/users')
 
         ws.socket.addEventListener 'open', () ->
-          spyOn(ws.socket, 'send')
+          spyOn(ws.socket, 'send').and.callThrough()
           ws.send(message, {})
 
           expect(ws.socket.send).toHaveBeenCalledWith JSON.stringify message.data
@@ -382,7 +382,7 @@ describe 'webSocket', ->
         error = (reason) -> 'error'
         complete = (data) -> 'complete'
 
-        spyOn(ws._messagesBuffer, 'push')
+        spyOn(ws._messagesBuffer, 'push').and.callThrough()
         promise = ws.send(message, {success, error, complete})
         expect(ws._messagesBuffer.push).toHaveBeenCalled()#With {message, options, promise}
         
@@ -416,7 +416,7 @@ describe 'webSocket', ->
         error = (reason) -> 'error'
         complete = (data) -> 'complete'
 
-        spyOn(ws._messagesBuffer, 'push')
+        spyOn(ws._messagesBuffer, 'push').and.callThrough()
         promise = ws.send(message, {success, error, complete})
         promise.catch (e) ->
           expect(e).toEqual new ReallyError('Connection to the server is not established')
@@ -443,7 +443,7 @@ describe 'webSocket', ->
       jasmine.clock().install()
       ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
       ws.connect()
-      spyOn(ws, 'reconnect')
+      spyOn(ws, 'reconnect').and.callThrough()
       ws.socket.addEventListener 'open', () ->
         ws.socket.close()
       ws.socket.addEventListener 'close', () ->
