@@ -2,7 +2,7 @@
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
  *
- *  Date:  Thu Dec 25 2014 13:54:13
+ *  Date:  Tue Jan 06 2015 17:38:48
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -9764,7 +9764,7 @@ module.exports = ReallyObject;
  * really
  * name space for application the parent for object & collection functions
  */
-var Really, ReallyCollection, ReallyError, ReallyObject, Transport, store, _;
+var PushHandler, Really, ReallyCollection, ReallyError, ReallyObject, Transport, store, _;
 
 Transport = require('./transports/webSocket');
 
@@ -9776,11 +9776,12 @@ ReallyError = require('./really-error');
 
 _ = require('lodash');
 
+PushHandler = require('./push-handler');
+
 store = {};
 
 Really = (function() {
   function Really(domain, accessToken, options) {
-    var transport;
     if (!(domain && accessToken)) {
       throw new ReallyError('Can\'t initialize Really without passing domain and access token');
     }
@@ -9790,19 +9791,21 @@ Really = (function() {
     if (store[domain]) {
       this.object = store[domain]['object'];
       this.collection = store[domain]['collection'];
+      this.transport = store[domain]['transport'];
     } else {
-      transport = new Transport(domain, accessToken, options);
-      transport.connect();
       store[domain] = {};
-      this.object = store[domain]['object'] = new ReallyObject(transport);
-      this.collection = store[domain]['collection'] = new ReallyCollection(transport);
-      transport.on('message', function(message) {
-        var data;
-        data = JSON.parse(message);
-        if (!_.has(data, 'tag')) {
-          return pushHandler.handle(this, data);
-        }
-      });
+      this.transport = new Transport(domain, accessToken, options);
+      this.transport.connect();
+      store[domain]['transport'] = this.transport;
+      this.object = store[domain]['object'] = new ReallyObject(this.transport);
+      this.collection = store[domain]['collection'] = new ReallyCollection(this.transport);
+      this.transport.on('message', (function(_this) {
+        return function(message) {
+          if (!_.has(message, 'tag')) {
+            return PushHandler.handle(_this, message);
+          }
+        };
+      })(this));
     }
     return this;
   }
@@ -9815,7 +9818,7 @@ module.exports = Really;
 
 
 
-},{"./really-collection":12,"./really-error":13,"./really-object":14,"./transports/webSocket":17,"lodash":3}],16:[function(require,module,exports){
+},{"./push-handler":11,"./really-collection":12,"./really-error":13,"./really-object":14,"./transports/webSocket":17,"lodash":3}],16:[function(require,module,exports){
 
 /**
  * Transport

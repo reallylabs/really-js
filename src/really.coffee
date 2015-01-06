@@ -8,8 +8,9 @@ ReallyObject = require './really-object'
 ReallyCollection = require './really-collection'
 ReallyError = require './really-error'
 _ = require 'lodash'
-store = {}
+PushHandler = require './push-handler'
 
+store = {}
 class Really
   constructor: (domain, accessToken, options) ->
     unless domain and accessToken
@@ -21,16 +22,16 @@ class Really
     if store[domain]
       @object = store[domain]['object']
       @collection = store[domain]['collection']
+      @transport = store[domain]['transport']
     else
-      transport = new Transport(domain, accessToken, options)
-      transport.connect()
       store[domain] = {}
-      @object = store[domain]['object'] = new ReallyObject(transport)
-      @collection = store[domain]['collection'] = new ReallyCollection(transport)
-      
-      transport.on 'message', (message) ->
-        data = JSON.parse message
-        pushHandler.handle(this, data) unless _.has data, 'tag'
+      @transport = new Transport(domain, accessToken, options)
+      @transport.connect()
+      store[domain]['transport'] = @transport
+      @object = store[domain]['object'] = new ReallyObject(@transport)
+      @collection = store[domain]['collection'] = new ReallyCollection(@transport)
+      @transport.on 'message', (message) =>
+        PushHandler.handle(this, message) unless _.has message, 'tag'
 
     return this
 
