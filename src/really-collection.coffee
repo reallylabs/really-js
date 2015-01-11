@@ -1,9 +1,10 @@
-_ = require 'lodash'
-protocol = require './protocol'
+# Dependencies
+
+_           = require 'lodash'
+Q           = require 'q'
+protocol    = require './protocol'
 ReallyError = require './really-error'
-Emitter = require 'component-emitter'
-_ = require 'lodash'
-Q = require 'q'
+Emitter     = require 'component-emitter'
 
 class ReallyCollection
   constructor: (@channel) -> Emitter this
@@ -19,7 +20,7 @@ class ReallyCollection
       setTimeout( ->
         deferred.reject e
       , 0)
-      
+
       return deferred.promise
 
     @channel.send message, {success: onSuccess, error: onError, complete: onComplete}
