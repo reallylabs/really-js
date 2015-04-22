@@ -5,18 +5,14 @@ WebSocket = require 'ws'
 protocol = require '../protocol'
 Emitter = require 'component-emitter'
 CallbacksBuffer = require '../callbacks-buffer'
-PushHandler = require '../push-handler'
 Q = require 'q'
 Heartbeat = require '../heartbeat'
-Logger = require '../logger'
-logger = new Logger()
 # TODO: if connection get closed stop the heartbeat
 class WebSocketTransport extends Transport
   constructor: (@domain, @accessToken, @options = {}) ->
     @socket = null
     @callbacksBuffer = new CallbacksBuffer()
     @_messagesBuffer = []
-    @pushHandler = PushHandler
     # connection not initialized yet "we haven't send first message yet"
     @initialized =  false
     @url = "#{domain}/v#{protocol.clientVersion}/socket"
@@ -28,9 +24,7 @@ class WebSocketTransport extends Transport
       reconnect: true
       onDisconnect: 'buffer'
     @options = _.defaults @options, defaults
-  
-  # Mixin Emitter
-  Emitter(WebSocketTransport.prototype)
+    Emitter this
 
   _bindWebSocketEvents = (deferred) ->
     @socket.addEventListener 'open', =>
@@ -66,7 +60,7 @@ class WebSocketTransport extends Transport
      
       error = (reason) ->
         options.error? reason
-        deferred.reject reason
+        deferred.reject new ReallyError(reason)
 
       complete = (data) ->
         options.complete? data
@@ -122,27 +116,20 @@ class WebSocketTransport extends Transport
     @socket = new WebSocket(@url)
     @socket.addEventListener 'error', _.once ->
       console.log "error initializing websocket with URL: #{@url}"
-   
     _bindWebSocketEvents.call(this, deferred)
     return deferred.promise
   
-  reconnect: (timeout) ->
-    @attempts += 1
-    
-    generateTimeout: () ->
+  reconnect: () ->
+    generateTimeout = () =>
       maxInterval = (Math.pow(2, @attemps) - 1) * 1000
       if maxInterval > @options.reconnectionMaxTimeout
         maxInterval = @options.reconnectionMaxTimeout
       
       Math.random() * maxInterval
+    @attempts += 1
+    @connect().timeout(generateTimeout()).catch (e) ->
+      reconnect()
     
-    @connect().timeout(timeout).catch () ->
-      timeout = generateTimeout timeout
-      reconnect(timeout)
-    
-
-
-  
   _.flush = ->
     setTimeout(=>
       @send(message, options, deferred) for {message, options, deferred} in @_messagesBuffer
@@ -159,8 +146,8 @@ class WebSocketTransport extends Transport
   _destroy =  () -> @off()
  
   disconnect: () ->
-    _destroy.call(this)
     @socket?.close()
+    _destroy.call(this)
     @socket = null
     @initialized = false
 
