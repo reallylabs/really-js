@@ -1,17 +1,19 @@
+# Dependencies
+
+_           = require 'lodash'
+Q           = require 'q'
 protocol    = require './protocol'
 ReallyError = require './really-error'
 Emitter     = require 'component-emitter'
-_           = require 'lodash'
-Q           = require 'q'
 
 class ReallyObject
   constructor: (@channel) -> Emitter this
-  
+
   get: (r, options) ->
     throw new ReallyError('Can not be initialized without resource') unless _.isString r
     deferred = new Q.defer()
     {fields, onSuccess, onError, onComplete} = options
-    
+
     try
       message = protocol.getMessage(r, fields)
     catch e
@@ -25,7 +27,7 @@ class ReallyObject
   update: (r, rev, options) ->
     throw new ReallyError('Can not be initialized without resource') unless _.isString r
     deferred = new Q.defer()
-    
+
     unless options
       deferred.reject new ReallyError('Can\'t be called without passing arguments')
       return deferred.promise
@@ -33,7 +35,7 @@ class ReallyObject
     {ops, onSuccess, onError, onComplete} = options
 
     try
-      message = protocol.updateMessage(r, ops)
+      message = protocol.updateMessage(r, rev, ops)
     catch e
       setTimeout( ->
         deferred.reject e
