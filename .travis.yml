@@ -10,3 +10,6 @@ before_script:
   - node tests/support/server/index.js &
   - sleep 5
 script: npm test
+
+notifications:
+  slack: reallyio:1Aieu5uNy7ucflfQnjGJbFPY
