@@ -5,13 +5,13 @@ _              = require 'lodash'
 authenticator  = require './authenticator'
 ReallyError    = require './really-error'
 
-VERSION        = '0'
+VERSION        = '0.1'
 module.exports =
 
   clientVersion: VERSION
 
   commands:
-    init: 'init'
+    init: 'initialize'
     create: 'create'
     read: 'read'
     get: 'get'
@@ -41,7 +41,7 @@ module.exports =
         cmd: @commands.create
         r: res
 
-    message['body'] = body if body
+    message['data']['body'] = body if body
 
     return message
 

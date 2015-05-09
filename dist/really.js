@@ -2,7 +2,7 @@
  *  Really.js v0.0.1
  *  Copyright (C) 2014-2015 Really Inc. <http://really.io>
  *
- *  Date:  Sat May 09 2015 20:15:49
+ *  Date:  Sat May 09 2015 20:52:36
  */
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.Really=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
@@ -7142,67 +7142,57 @@ var nextTick =(function () {
     var flushing = false;
     var requestTick = void 0;
     var isNodeJS = false;
-    // queue for late tasks, used by unhandled rejection tracking
-    var laterQueue = [];
 
     function flush() {
         /* jshint loopfunc: true */
-        var task, domain;
 
         while (head.next) {
             head = head.next;
-            task = head.task;
+            var task = head.task;
             head.task = void 0;
-            domain = head.domain;
+            var domain = head.domain;
 
             if (domain) {
                 head.domain = void 0;
                 domain.enter();
             }
-            runSingle(task, domain);
 
-        }
-        while (laterQueue.length) {
-            task = laterQueue.pop();
-            runSingle(task);
-        }
-        flushing = false;
-    }
-    // runs a single function in the async queue
-    function runSingle(task, domain) {
-        try {
-            task();
+            try {
+                task();
 
-        } catch (e) {
-            if (isNodeJS) {
-                // In node, uncaught exceptions are considered fatal errors.
-                // Re-throw them synchronously to interrupt flushing!
+            } catch (e) {
+                if (isNodeJS) {
+                    // In node, uncaught exceptions are considered fatal errors.
+                    // Re-throw them synchronously to interrupt flushing!
 
-                // Ensure continuation if the uncaught exception is suppressed
-                // listening "uncaughtException" events (as domains does).
-                // Continue in next event to avoid tick recursion.
-                if (domain) {
-                    domain.exit();
-                }
-                setTimeout(flush, 0);
-                if (domain) {
-                    domain.enter();
-                }
+                    // Ensure continuation if the uncaught exception is suppressed
+                    // listening "uncaughtException" events (as domains does).
+                    // Continue in next event to avoid tick recursion.
+                    if (domain) {
+                        domain.exit();
+                    }
+                    setTimeout(flush, 0);
+                    if (domain) {
+                        domain.enter();
+                    }
 
-                throw e;
-
-            } else {
-                // In browsers, uncaught exceptions are not fatal.
-                // Re-throw them asynchronously to avoid slow-downs.
-                setTimeout(function () {
                     throw e;
-                }, 0);
+
+                } else {
+                    // In browsers, uncaught exceptions are not fatal.
+                    // Re-throw them asynchronously to avoid slow-downs.
+                    setTimeout(function() {
+                       throw e;
+                    }, 0);
+                }
+            }
+
+            if (domain) {
+                domain.exit();
             }
         }
 
-        if (domain) {
-            domain.exit();
-        }
+        flushing = false;
     }
 
     nextTick = function (task) {
@@ -7218,16 +7208,9 @@ var nextTick =(function () {
         }
     };
 
-    if (typeof process === "object" &&
-        process.toString() === "[object process]" && process.nextTick) {
-        // Ensure Q is in a real Node environment, with a `process.nextTick`.
-        // To see through fake Node environments:
-        // * Mocha test runner - exposes a `process` global without a `nextTick`
-        // * Browserify - exposes a `process.nexTick` function that uses
-        //   `setTimeout`. In this case `setImmediate` is preferred because
-        //    it is faster. Browserify's `process.toString()` yields
-        //   "[object Object]", while in a real Node environment
-        //   `process.nextTick()` yields "[object process]".
+    if (typeof process !== "undefined" && process.nextTick) {
+        // Node.js before 0.9. Note that some fake-Node environments, like the
+        // Mocha test runner, introduce a `process` global without a `nextTick`.
         isNodeJS = true;
 
         requestTick = function () {
@@ -7271,16 +7254,7 @@ var nextTick =(function () {
             setTimeout(flush, 0);
         };
     }
-    // runs a task after all other tasks have been run
-    // this is useful for unhandled rejection tracking that needs to happen
-    // after all `then`d tasks have been run.
-    nextTick.runAfter = function (task) {
-        laterQueue.push(task);
-        if (!flushing) {
-            flushing = true;
-            requestTick();
-        }
-    };
+
     return nextTick;
 })();
 
@@ -7774,9 +7748,9 @@ Promise.prototype.join = function (that) {
  */
 Q.race = race;
 function race(answerPs) {
-    return promise(function (resolve, reject) {
+    return promise(function(resolve, reject) {
         // Switch to this once we can assume at least ES5
-        // answerPs.forEach(function (answerP) {
+        // answerPs.forEach(function(answerP) {
         //     Q(answerP).then(resolve, reject);
         // });
         // Use this in the meantime
@@ -8074,7 +8048,6 @@ Promise.prototype.isRejected = function () {
 // shimmed environments, this would naturally be a `Set`.
 var unhandledReasons = [];
 var unhandledRejections = [];
-var reportedUnhandledRejections = [];
 var trackUnhandledRejections = true;
 
 function resetUnhandledRejections() {
@@ -8089,14 +8062,6 @@ function resetUnhandledRejections() {
 function trackRejection(promise, reason) {
     if (!trackUnhandledRejections) {
         return;
-    }
-    if (typeof process === "object" && typeof process.emit === "function") {
-        Q.nextTick.runAfter(function () {
-            if (array_indexOf(unhandledRejections, promise) !== -1) {
-                process.emit("unhandledRejection", reason, promise);
-                reportedUnhandledRejections.push(promise);
-            }
-        });
     }
 
     unhandledRejections.push(promise);
@@ -8114,15 +8079,6 @@ function untrackRejection(promise) {
 
     var at = array_indexOf(unhandledRejections, promise);
     if (at !== -1) {
-        if (typeof process === "object" && typeof process.emit === "function") {
-            Q.nextTick.runAfter(function () {
-                var atReport = array_indexOf(reportedUnhandledRejections, promise);
-                if (atReport !== -1) {
-                    process.emit("rejectionHandled", unhandledReasons[at], promise);
-                    reportedUnhandledRejections.splice(atReport, 1);
-                }
-            });
-        }
         unhandledRejections.splice(at, 1);
         unhandledReasons.splice(at, 1);
     }
@@ -8650,7 +8606,7 @@ function any(promises) {
 
     var deferred = Q.defer();
     var pendingCount = 0;
-    array_reduce(promises, function (prev, current, index) {
+    array_reduce(promises, function(prev, current, index) {
         var promise = promises[index];
 
         pendingCount++;
@@ -8679,7 +8635,7 @@ function any(promises) {
     return deferred.promise;
 }
 
-Promise.prototype.any = function () {
+Promise.prototype.any = function() {
     return any(this);
 };
 
@@ -9143,7 +9099,7 @@ module.exports = {
  * Callbacks Buffer
  *
  */
-var CallbacksBuffer, ReallyError, _, protocol;
+var CallbacksBuffer, ReallyError, protocol, _;
 
 protocol = require('./protocol');
 
@@ -9288,7 +9244,7 @@ module.exports = Heartbeat;
 
 },{"./logger":9,"./protocol":10,"q":4}],9:[function(require,module,exports){
 var Logger, _,
-  slice = [].slice;
+  __slice = [].slice;
 
 _ = require('lodash');
 
@@ -9296,44 +9252,44 @@ Logger = (function() {
   function Logger() {}
 
   Logger.prototype.debug = function() {
-    var args, ref;
-    args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+    var args, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
     args.unshift('Really::Debug::');
     if (typeof console !== "undefined" && console !== null) {
-      if ((ref = console.debug) != null) {
-        ref.apply(console, args);
+      if ((_ref = console.debug) != null) {
+        _ref.apply(console, args);
       }
     }
     return args;
   };
 
   Logger.prototype.info = function() {
-    var args, ref;
-    args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+    var args, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
     args.unshift('Really::Info::');
     if (typeof console !== "undefined" && console !== null) {
-      if ((ref = console.log) != null) {
-        ref.apply(console, args);
+      if ((_ref = console.log) != null) {
+        _ref.apply(console, args);
       }
     }
     return args;
   };
 
   Logger.prototype.warn = function() {
-    var args, ref;
-    args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+    var args, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
     args.unshift('Really::Warn::');
     if (typeof console !== "undefined" && console !== null) {
-      if ((ref = console.warn) != null) {
-        ref.apply(console, args);
+      if ((_ref = console.warn) != null) {
+        _ref.apply(console, args);
       }
     }
     return args;
   };
 
   Logger.prototype.error = function() {
-    var args, code, errorName, message, prefix, ref;
-    args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+    var args, code, errorName, message, prefix, _ref;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
     prefix = 'Really::Error::';
     if (_.isObject(args[0])) {
       code = args[0].code;
@@ -9344,8 +9300,8 @@ Logger = (function() {
     }
     args.unshift(prefix);
     if (typeof console !== "undefined" && console !== null) {
-      if ((ref = console.error) != null) {
-        ref.apply(console, args);
+      if ((_ref = console.error) != null) {
+        _ref.apply(console, args);
       }
     }
     return args;
@@ -9360,8 +9316,8 @@ module.exports = Logger;
 
 
 },{"lodash":3}],10:[function(require,module,exports){
-var ReallyError, VERSION, _, authenticator,
-  indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+var ReallyError, VERSION, authenticator, _,
+  __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 _ = require('lodash');
 
@@ -9369,12 +9325,12 @@ authenticator = require('./authenticator');
 
 ReallyError = require('./really-error');
 
-VERSION = '0';
+VERSION = '0.1';
 
 module.exports = {
   clientVersion: VERSION,
   commands: {
-    init: 'init',
+    init: 'initialize',
     create: 'create',
     read: 'read',
     get: 'get',
@@ -9412,7 +9368,7 @@ module.exports = {
       }
     };
     if (body) {
-      message['body'] = body;
+      message['data']['body'] = body;
     }
     return message;
   },
@@ -9503,14 +9459,14 @@ module.exports = {
     return message;
   },
   updateMessage: function(res, rev, ops) {
-    var i, len, message, operation, ref, supportedOperations;
+    var message, operation, supportedOperations, _i, _len, _ref;
     if (!(_.isArray(ops) && ops.length > 0)) {
       throw new ReallyError('You should pass at least one operation');
     }
     supportedOperations = ['set', 'addNumber', 'push', 'addToSet', 'insertAt', 'pull', 'removeAt'];
-    for (i = 0, len = ops.length; i < len; i++) {
-      operation = ops[i];
-      if (ref = operation.op, indexOf.call(supportedOperations, ref) < 0) {
+    for (_i = 0, _len = ops.length; _i < _len; _i++) {
+      operation = ops[_i];
+      if (_ref = operation.op, __indexOf.call(supportedOperations, _ref) < 0) {
         throw new ReallyError("\"" + operation.op + "\" operation you passed is not supported");
       }
     }
@@ -9540,15 +9496,15 @@ module.exports = {
     };
   },
   subscribeMessage: function(subscriptions) {
-    var i, len, message, subscription;
+    var message, subscription, _i, _len;
     if (!(_.isPlainObject(subscriptions) || _.isArray(subscriptions))) {
       throw new ReallyError('subscription(s) should be either Object or Array of Objects');
     }
     if (!_.isArray(subscriptions)) {
       subscriptions = [subscriptions];
     }
-    for (i = 0, len = subscriptions.length; i < len; i++) {
-      subscription = subscriptions[i];
+    for (_i = 0, _len = subscriptions.length; _i < _len; _i++) {
+      subscription = subscriptions[_i];
       if (!(_.isNumber(subscription.rev) && _.isString(subscription.res))) {
         throw new ReallyError('You must pass string resource and number revision for subscription object');
       }
@@ -9562,15 +9518,15 @@ module.exports = {
     };
   },
   unsubscribeMessage: function(subscriptions) {
-    var i, len, message, subscription;
+    var message, subscription, _i, _len;
     if (!(_.isPlainObject(subscriptions) || _.isArray(subscriptions))) {
       throw new ReallyError('subscription(s) should be either Object or Array of Objects');
     }
     if (!_.isArray(subscriptions)) {
       subscriptions = [subscriptions];
     }
-    for (i = 0, len = subscriptions.length; i < len; i++) {
-      subscription = subscriptions[i];
+    for (_i = 0, _len = subscriptions.length; _i < _len; _i++) {
+      subscription = subscriptions[_i];
       if (!(_.isNumber(subscription.rev) && _.isString(subscription.res))) {
         throw new ReallyError('You must pass string resource and number revision for subscription object');
       }
@@ -9616,9 +9572,9 @@ module.exports = {
     switch (evt) {
       case 'updated':
       case 'deleted':
-        return really.object.emit(r + ":" + evt, message);
+        return really.object.emit("" + r + ":" + evt, message);
       case 'created':
-        return really.collection.emit(r + ":" + evt, message);
+        return really.collection.emit("" + r + ":" + evt, message);
       case 'kicked':
       case 'revoked':
         return really.emit(evt, message);
@@ -9631,7 +9587,7 @@ module.exports = {
 
 
 },{"./really-error":13}],12:[function(require,module,exports){
-var Emitter, Q, ReallyCollection, ReallyError, _, protocol;
+var Emitter, Q, ReallyCollection, ReallyError, protocol, _;
 
 _ = require('lodash');
 
@@ -9703,7 +9659,7 @@ ReallyCollection = (function() {
   };
 
   ReallyCollection.prototype.onCreate = function(r, callback) {
-    return this.on(r + ":created", function(data) {
+    return this.on("" + r + ":created", function(data) {
       return callback(data);
     });
   };
@@ -9724,11 +9680,11 @@ module.exports = ReallyCollection;
  * This module extends the JavaScript Error
  */
 var ReallyError,
-  extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
-  hasProp = {}.hasOwnProperty;
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
-ReallyError = (function(superClass) {
-  extend(ReallyError, superClass);
+ReallyError = (function(_super) {
+  __extends(ReallyError, _super);
 
   function ReallyError(message) {
     this.message = message != null ? message : 'Unknown Error';
@@ -9747,7 +9703,7 @@ module.exports = ReallyError;
 
 
 },{}],14:[function(require,module,exports){
-var Emitter, Q, ReallyError, ReallyObject, _, protocol;
+var Emitter, Q, ReallyError, ReallyObject, protocol, _;
 
 _ = require('lodash');
 
@@ -9830,13 +9786,13 @@ ReallyObject = (function() {
   };
 
   ReallyObject.prototype.onUpdate = function(r, callback) {
-    return this.on(r + ":updated", function(data) {
+    return this.on("" + r + ":updated", function(data) {
       return callback(data);
     });
   };
 
   ReallyObject.prototype.onDelete = function(r, callback) {
-    return this.on(r + ":deleted", function(data) {
+    return this.on("" + r + ":deleted", function(data) {
       return callback(data);
     });
   };
@@ -9855,7 +9811,7 @@ module.exports = ReallyObject;
  * really
  * name space for application the parent for object & collection functions
  */
-var PushHandler, Really, ReallyCollection, ReallyError, ReallyObject, Transport, _, store;
+var PushHandler, Really, ReallyCollection, ReallyError, ReallyObject, Transport, store, _;
 
 Transport = require('./transports/webSocket');
 
@@ -9954,9 +9910,9 @@ module.exports = Transport;
 
 
 },{}],17:[function(require,module,exports){
-var CallbacksBuffer, Emitter, Heartbeat, Q, ReallyError, Transport, WebSocket, WebSocketTransport, _, protocol,
-  extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
-  hasProp = {}.hasOwnProperty;
+var CallbacksBuffer, Emitter, Heartbeat, Q, ReallyError, Transport, WebSocket, WebSocketTransport, protocol, _,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
 _ = require('lodash');
 
@@ -9976,21 +9932,21 @@ Q = require('q');
 
 Heartbeat = require('../heartbeat');
 
-WebSocketTransport = (function(superClass) {
+WebSocketTransport = (function(_super) {
   var _bindWebSocketEvents, _destroy, _sendFirstMessage;
 
-  extend(WebSocketTransport, superClass);
+  __extends(WebSocketTransport, _super);
 
-  function WebSocketTransport(domain, accessToken, options1) {
+  function WebSocketTransport(domain, accessToken, options) {
     var defaults;
     this.domain = domain;
     this.accessToken = accessToken;
-    this.options = options1 != null ? options1 : {};
+    this.options = options != null ? options : {};
     this.socket = null;
     this.callbacksBuffer = new CallbacksBuffer();
     this._messagesBuffer = [];
     this.initialized = false;
-    this.url = this.domain + "/v" + protocol.clientVersion + "/socket";
+    this.url = "" + this.domain + "/v" + protocol.clientVersion + "/socket";
     defaults = {
       reconnectionMaxTimeout: 30e3,
       heartbeatTimeout: 2e3,
@@ -10040,7 +9996,7 @@ WebSocketTransport = (function(superClass) {
   };
 
   WebSocketTransport.prototype.send = function(message, options, deferred) {
-    var _handleDisconnected, complete, error, kind, strategy, success;
+    var complete, error, kind, strategy, success, _handleDisconnected;
     if (options == null) {
       options = {};
     }
@@ -10178,14 +10134,14 @@ WebSocketTransport = (function(superClass) {
   _.flush = function() {
     return setTimeout((function(_this) {
       return function() {
-        var deferred, i, len, message, options, ref, ref1, results;
-        ref = _this._messagesBuffer;
-        results = [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          ref1 = ref[i], message = ref1.message, options = ref1.options, deferred = ref1.deferred;
-          results.push(_this.send(message, options, deferred));
+        var deferred, message, options, _i, _len, _ref, _ref1, _results;
+        _ref = _this._messagesBuffer;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          _ref1 = _ref[_i], message = _ref1.message, options = _ref1.options, deferred = _ref1.deferred;
+          _results.push(_this.send(message, options, deferred));
         }
-        return results;
+        return _results;
       };
     })(this), 0);
   };
@@ -10209,9 +10165,9 @@ WebSocketTransport = (function(superClass) {
   };
 
   WebSocketTransport.prototype.disconnect = function() {
-    var ref;
-    if ((ref = this.socket) != null) {
-      ref.close();
+    var _ref;
+    if ((_ref = this.socket) != null) {
+      _ref.close();
     }
     _destroy.call(this);
     this.socket = null;
