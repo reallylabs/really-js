@@ -15,7 +15,7 @@ class WebSocketTransport extends Transport
     @_messagesBuffer = []
     # connection not initialized yet "we haven't send first message yet"
     @initialized =  false
-    @url = "#{domain}/v#{protocol.clientVersion}/socket"
+    @url = "#{@domain}/v#{protocol.clientVersion}/socket"
 
     defaults =
       reconnectionMaxTimeout: 30e3
