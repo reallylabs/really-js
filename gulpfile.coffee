@@ -3,8 +3,8 @@ $ = require('gulp-load-plugins')()
 karma = require('karma').server
 browserify = require 'browserify'
 watchify = require 'watchify'
-transform = require 'vinyl-transform'
 coffeeify = require 'coffeeify'
+through2 = require 'through2'
 del = require 'del'
 pkg = require './package.json'
 banner = """
@@ -35,18 +35,18 @@ gulp.task 'test', ['lint'], (done) ->
   , done
 
 gulp.task 'browserify', ->
-  browserified = transform (filename) ->
-    b = browserify
-      entries: [filename]
-      standalone: 'Really'
-      extensions: ['.js', '.coffee']
-    
-    b.transform(coffeeify)
-    b.bundle()
-
   gulp.src ['src/really.coffee']
-    .pipe browserified
-    # generate browserify uncompressed bundle
+    .pipe through2.obj (file, enc, next) ->
+      # generate browserify uncompressed bundle
+      browserify
+        entries: [file.path]
+        standalone: 'Really'
+        extensions: ['.js', '.coffee']
+      .transform('coffeeify')
+      .bundle (err, res) ->
+          file.contents = res
+          next(null, file)
+    
     .pipe $.rename 'really.js'
     # add banner to file
     .pipe $.header banner, {pkg}

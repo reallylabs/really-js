@@ -12,7 +12,7 @@ options =
   reconnectionMaxTimeout: 30e3
   heartbeatTimeout: 3e3
   heartbeatInterval: 5e3
-  reconnect: true
+  reconnect: false
   onDisconnect: 'buffer'
 
 describe 'webSocket', ->
@@ -140,7 +140,7 @@ describe 'webSocket', ->
     it 'should send first message', (done) ->
       ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5aye', options)
       ws.connect()
-      message = {tag: 1, 'cmd': 'init', accessToken: 'ibj88w5aye'}
+      message = {tag: 1, 'cmd': 'initialize', accessToken: 'ibj88w5aye'}
       ws.on 'message', (msg) ->
         expect(message).toEqual msg
         ws.disconnect()
@@ -235,7 +235,7 @@ describe 'webSocket', ->
 
     describe 'connection close', ->
       it 'should fire "reconnecting" event when reconnect options is true', (done) ->
-        ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
+        ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', {reconnect: true, reconnectionMaxTimeout: 500})
         ws.connect()
         spyOn(ws, 'emit').and.callThrough()
         ws.socket.addEventListener 'close', () ->
@@ -245,7 +245,7 @@ describe 'webSocket', ->
         ws.socket.close()
 
       it 'should reconnect when reconnect option is true', (done) ->
-        ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
+        ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', {reconnect: true, reconnectionMaxTimeout: 500})
         ws.connect()
         spyOn(ws, 'reconnect').and.callThrough()
         ws.socket.addEventListener 'close', () ->
@@ -429,7 +429,7 @@ describe 'webSocket', ->
 
   describe 'reconnect', ->
     it 'should increase number of attempts with one', (done) ->
-      ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
+      ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', {reconnect: true , reconnectionMaxTimeout: 500})
       ws.connect()
       ws.socket.addEventListener 'open', () ->
         ws.socket.close()
@@ -440,7 +440,7 @@ describe 'webSocket', ->
 
     it 'should reconnect when time out', (done) ->
       jasmine.clock().install()
-      ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', options)
+      ws = new WebSocketTransport(CONFIG.REALLY_DOMAIN, 'ibj88w5ake', {reconnect: true, reconnectionMaxTimeout: 500})
       ws.connect()
       spyOn(ws, 'reconnect').and.callThrough()
       ws.socket.addEventListener 'open', () ->
